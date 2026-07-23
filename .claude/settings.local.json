@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git clone *)",
+      "Read(//c/Users/danie/**)",
+      "Bash(npx uipro-cli *)",
+      "Bash(npm install *)",
+      "WebFetch(domain:magicmikelive.com)",
+      "Bash(curl -s \"https://magicmikelive.com/new-york/\")",
+      "Bash(curl -s \"https://magicmikelive.com/_astro/_path_.BRhsOuc4.css\")",
+      "Bash(curl -s \"https://magicmikelive.com/_astro/_path_.ICi96pAD.css\")",
+      "Bash(curl -s \"https://magicmikelive.com/_astro/HeroBlock.UhucCJaH.js\")",
+      "Bash(curl -L -o \"c:/Users/danie/Downloads/b_48dSE9lvZOp-1773773931389/public/magicmike-desktop.mp4\" \"https://cms.magicmikelive.com/new-york/wp-content/uploads/sites/4/2025/12/mml-2025-12-new-brand-motion-15s-web-1920x1080-57074SA-v4a_comp2.mp4\" --max-time 60 -w \"%{http_code} | %{size_download} bytes\")",
+      "Bash(curl -L -o \"c:/Users/danie/Downloads/b_48dSE9lvZOp-1773773931389/public/magicmike-mobile.mp4\" \"https://cms.magicmikelive.com/new-york/wp-content/uploads/sites/4/2025/12/mml-2025-12-new-brand-motion-15s-web-768x1067-57074SA-v3a_comp.mp4\" --max-time 60 -w \"%{http_code} | %{size_download} bytes\")",
+      "Bash(sed -i 's/GoldParticles count={10} className=\"z-0\" opacityClassName=\"opacity-55\"/GoldParticles count={26} className=\"z-0\" opacityClassName=\"opacity-65\"/' \"c:/Users/danie/Downloads/b_48dSE9lvZOp-1773773931389/app/conjuntos/page.tsx\")",
+      "Bash(sed -i 's/GoldParticles count={14} className=\"z-0\" opacityClassName=\"opacity-60\"/GoldParticles count={28} className=\"z-0\" opacityClassName=\"opacity-65\"/' \"c:/Users/danie/Downloads/b_48dSE9lvZOp-1773773931389/app/contacto/page.tsx\")",
+      "Bash(npx --yes sharp-cli --version)",
+      "Bash(awk '{total += $1} END {print \"WebP total: \" total \"K\"}')",
+      "Bash(awk '{print $5, $9}')"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Fondo morado oscuro -->
+  <rect width="32" height="32" rx="7" fill="#120826"/>
+
+  <!-- Diamante: forma de gema con facetas doradas -->
+  <!-- Corona superior (trapecio) -->
+  <polygon points="10,13 22,13 26,8 6,8" fill="#D4AF37"/>
+  <!-- Faceta izquierda corona -->
+  <polygon points="6,8 10,13 16,8" fill="#ffe599"/>
+  <!-- Faceta derecha corona -->
+  <polygon points="26,8 22,13 16,8" fill="#b8922e"/>
+  <!-- Pabellón (parte inferior, termina en punta) -->
+  <polygon points="10,13 16,25 22,13" fill="#e8c84a"/>
+  <!-- Faceta izquierda pabellón -->
+  <polygon points="10,13 16,25 13,13" fill="#D4AF37"/>
+  <!-- Faceta derecha pabellón -->
+  <polygon points="22,13 16,25 19,13" fill="#b8922e"/>
+  <!-- Línea de cintura (girdle) para definición -->
+  <line x1="10" y1="13" x2="22" y2="13" stroke="#fff8dc" stroke-width="0.4" opacity="0.6"/>
+</svg>

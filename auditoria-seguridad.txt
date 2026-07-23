@@ -1,0 +1,679 @@
+================================================================================
+INFORME DE AUDITORÍA DE CIBERSEGURIDAD — LUXX PRODUCCIONES
+================================================================================
+Versión auditada: 0.1.0 · Next.js 16.1.6 · Fecha: 2026-04-22
+Marcos aplicados: OWASP Top 10:2025 + Ley N° 21.719 (Chile)
+================================================================================
+
+NOTA CRÍTICA DE CONTEXTO
+------------------------
+El codebase auditado es un PROTOTIPO FRONTEND DE FASE 1. No existe backend,
+base de datos, autenticación, ni integración de pagos real. Las características
+descritas en el enunciado (NextAuth, Prisma, PostgreSQL, Transbank) son
+PLANIFICADAS PERO NO IMPLEMENTADAS. Este informe audita lo que existe hoy y
+define los requisitos de seguridad obligatorios para la Fase 2.
+
+
+================================================================================
+HALLAZGOS ORDENADOS POR SEVERIDAD
+================================================================================
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: CRÍTICA]
+[CATEGORÍA: A03:2025 — Software and Data Integrity Failures]
+------------------------------------------------------------------------
+Archivo: package.json:55 / package-lock.json
+
+Problema:
+  swiper@11.1.15 contiene una vulnerabilidad de Prototype Pollution confirmada
+  (GHSA-hmx5-qpq5-p643). Un atacante puede contaminar el prototipo de Object
+  en el runtime de Node.js/navegador, lo que puede escalar a ejecución de código
+  arbitrario dependiendo del contexto de uso.
+
+Impacto:
+  En el contexto actual (solo frontend), el alcance es XSS en el cliente.
+  Cuando se agregue un backend SSR, podría escalar a RCE o bypass de
+  validaciones si el código contaminado llega al servidor.
+
+Código actual:
+  "swiper": "^11.1.15"
+
+Código corregido:
+  "swiper": "^12.1.3"
+  ⚠️ Es un breaking change. Verificar la API de Swiper 12 en
+  components/client-photos-carousel.tsx antes de actualizar.
+
+Justificación:
+  La versión 12.1.3 parchea GHSA-hmx5-qpq5-p643 eliminando la mutación insegura
+  del prototipo. Ejecutar `npm audit fix --force` después de ajustar la sintaxis
+  rota.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: ALTA]
+[CATEGORÍA: A03:2025 — Software and Data Integrity Failures]
+------------------------------------------------------------------------
+Archivo: package.json:51
+
+Problema:
+  next@16.1.6 tiene 6 CVEs activos, incluyendo:
+  - GHSA-ggv3-7p47-pfv8 — HTTP Request Smuggling en rewrites
+  - GHSA-q4gf-8mx6-v5v3 — DoS con Server Components (CVSS 7.5 — la más grave)
+  - GHSA-mq59-m269-xvcx — null origin bypassa verificaciones CSRF de Server Actions
+  - GHSA-h27x-g6w4-24gq — DoS por buffering ilimitado en postpone/resume
+  - GHSA-3x4c-7xq6-9pq8 — Unbounded next/image disk cache growth
+  - GHSA-jcc7-9wpm-mj36 — null origin bypassa dev HMR websocket CSRF checks
+
+Impacto:
+  El bypass de CSRF en Server Actions (GHSA-mq59-m269-xvcx) es especialmente
+  relevante porque el proyecto planifica usar Server Actions para el flujo de
+  reserva y pagos. Un atacante podría invocar Server Actions desde cualquier
+  origen.
+
+Código actual:
+  "next": "16.1.6"
+
+Código corregido:
+  "next": "16.2.4"
+  Ejecutar: npm install next@16.2.4 — NO es breaking change dentro de semver ^16.
+
+Justificación:
+  16.2.4 parchea todos los CVEs listados. La versión mínima segura según
+  npm audit es 16.1.7, pero se recomienda 16.2.4 (última en el canal 16.x).
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: ALTA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivo: next.config.mjs:3-5
+
+Problema:
+  typescript.ignoreBuildErrors: true desactiva la verificación de tipos durante
+  el build de producción. TypeScript en Next.js actúa como primera línea de
+  defensa contra tipos de datos inesperados que podrían llegar a queries de
+  base de datos, validaciones de roles y flujos de pago.
+
+Impacto:
+  Cuando se integre Prisma, esta configuración puede permitir que código con
+  errores de tipo llegue a producción, habilitando potencialmente injection vía
+  tipado inseguro o bypass de validaciones de rol.
+
+Código actual:
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
+Código corregido:
+  // Eliminar el bloque completo, o establecer explícitamente:
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+
+Justificación:
+  Forzar errores de compilación en CI garantiza que ningún código con tipos
+  incorrectos llegue al servidor de producción.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: ALTA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivo: next.config.mjs (ausencia total de headers HTTP de seguridad)
+
+Problema:
+  El proyecto no configura ningún header HTTP de seguridad. La ausencia de CSP,
+  HSTS, X-Frame-Options y X-Content-Type-Options deja al sitio expuesto a
+  clickjacking, MIME sniffing, y XSS reflejado.
+
+Impacto:
+  Sin X-Frame-Options: DENY, el sitio puede embeberse en un iframe malicioso
+  para ataques de clickjacking sobre el botón "Confirmar reserva". Sin CSP,
+  cualquier XSS inyectado puede exfiltrar datos del formulario de pago al
+  agregarse el backend.
+
+Código actual:
+  const nextConfig = {
+    typescript: { ignoreBuildErrors: true },
+    images: { ... },
+    compress: true,
+    poweredByHeader: false,
+    // ← sin sección headers()
+  }
+
+Código corregido (agregar en next.config.mjs):
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: https://images.unsplash.com",
+              "connect-src 'self' https://vitals.vercel-insights.com",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
+        ],
+      },
+    ]
+  },
+
+Justificación:
+  Los 6 headers cubren los vectores de ataque más comunes. El CSP propuesto es
+  el mínimo funcional — en Fase 2 debe migrar a nonce-based CSP para eliminar
+  'unsafe-inline'.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: ALTA]
+[CATEGORÍA: A06:2025 — Insecure Design]
+[LEY 21.719 — Art. 14 quáter (Privacidad desde el diseño)]
+------------------------------------------------------------------------
+Archivo: app/checkout/page.tsx:195-251
+
+Problema:
+  La página de checkout presenta un formulario de tarjeta de crédito con campos
+  para Titular, Número de tarjeta, Vencimiento y CVV, acompañado de badges
+  "Pago seguro" y "Conexión cifrada". Sin embargo, el botón "Confirmar reserva"
+  tiene type="button" y NO tiene ningún manejador de eventos ni action: no envía
+  datos a ningún servidor, no integra Transbank ni ningún procesador de pagos.
+
+Impacto:
+  1. UX deceptiva con consecuencias legales: Un usuario puede creer que está
+     completando una transacción real. Esto viola el principio de privacidad
+     desde el diseño (Art. 14 quáter) y podría constituir publicidad engañosa
+     bajo la Ley 19.496 (consumidor).
+  2. Patrón inseguro para Fase 2: El monto se calcula en el frontend (líneas
+     57-58). Si se replica al integrar Transbank, un atacante puede manipular
+     los query params para obtener precios alterados.
+
+Código actual (líneas 57-58):
+  const logisticsFee = Math.round(selectedTier.price * 0.08)
+  const totalAmount = selectedTier.price + logisticsFee
+
+Código actual (líneas 246-251):
+  <button
+    type="button"
+    className="w-full rounded-2xl bg-[...] ..."
+  >
+    Confirmar reserva
+  </button>
+
+Código corregido para Fase 2 (app/api/checkout/create-session/route.ts):
+  export async function POST(req: Request) {
+    const { tierId, vedetoSlug } = await req.json()
+
+    // Lookup canónico desde la base de datos — el cliente NO define el precio
+    const tier = await prisma.pricingTier.findUniqueOrThrow({ where: { id: tierId } })
+    const logisticsFee = Math.round(tier.price * 0.08)
+    const totalAmount = tier.price + logisticsFee
+
+    // Iniciar sesión Transbank con el monto calculado en servidor
+    const tbkResponse = await WebpayPlus.Transaction.create(
+      generateBuyOrder(),
+      generateSessionId(),
+      totalAmount,
+      `${process.env.BASE_URL}/api/checkout/confirm`
+    )
+
+    return Response.json({ url: tbkResponse.url, token: tbkResponse.token })
+  }
+
+Justificación:
+  La regla de oro de los pagos: el servidor es la fuente de verdad del precio.
+  Transbank nunca debe recibir un monto que provenga del frontend sin validación
+  backend.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: MEDIA]
+[CATEGORÍA: A01:2025 — Broken Access Control (IDOR latente)]
+------------------------------------------------------------------------
+Archivo: app/vedetos/[slug]/page.tsx:359-365
+
+Problema:
+  El link de reserva construye la URL de checkout concatenando directamente
+  parámetros controlados por el usuario (slug, tier, date, time) sin validación
+  adicional. En Fase 2, si estos parámetros se usan para buscar registros en DB
+  sin validar que pertenecen al usuario autenticado, constituye un IDOR.
+
+Impacto:
+  Un atacante podría manipular ?tier=p1&slug=admin-vedeto para reservar un
+  perfil restringido o acceder a recursos de otro usuario.
+
+Código actual (línea 360-362):
+  href={`/checkout?slug=${vedeto.slug}&tier=${selectedTier.id}${selectedDate ?
+  `&date=${selectedDate}` : ''}${selectedTime ? `&time=${selectedTime}` : ''}`}
+
+Código corregido para Fase 2 (app/checkout/page.tsx — Server Component):
+  const vedeto = await prisma.vedeto.findUnique({ where: { slug: params.slug } })
+  if (!vedeto) notFound()
+
+  const tier = await prisma.pricingTier.findFirst({
+    where: {
+      id: params.tier,
+      vedetoId: vedeto.id, // ← Validar que el tier pertenece a ESTE vedeto
+    },
+  })
+  if (!tier) notFound()
+
+Justificación:
+  Validar la pertenencia del recurso en servidor elimina el IDOR. Los params de
+  URL son hints para la UI, no fuente de verdad para operaciones.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: MEDIA]
+[CATEGORÍA: A09:2025 — Security Logging and Monitoring Failures]
+------------------------------------------------------------------------
+Archivo: Todo el proyecto (ausencia)
+
+Problema:
+  No existe ningún sistema de logging de eventos de seguridad. Para un sitio de
+  contenido adulto con pagos planificados esto es insuficiente.
+
+Impacto:
+  Sin logging, es imposible detectar intentos de acceso no autorizado, fallos de
+  pago fraudulentos, o una brecha de datos (requisito explícito de notificación
+  bajo Art. 40 de la Ley 21.719).
+
+Código corregido (lib/logger.ts — estructura para Fase 2):
+  type SecurityEvent =
+    | 'LOGIN_FAILED'
+    | 'LOGIN_SUCCESS'
+    | 'PAYMENT_INITIATED'
+    | 'PAYMENT_CONFIRMED'
+    | 'PAYMENT_FAILED'
+    | 'ROLE_CHANGE'
+    | 'DATA_EXPORT_REQUESTED'
+
+  export function logSecurityEvent(
+    event: SecurityEvent,
+    metadata: Record<string, string | number | boolean>
+  ) {
+    // Nunca loguear: contraseñas, tokens completos, CVV, números de tarjeta
+    const sanitized = Object.fromEntries(
+      Object.entries(metadata).filter(([k]) =>
+        !['password', 'cvv', 'cardNumber', 'token'].includes(k)
+      )
+    )
+
+    console.log(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event,
+        ...sanitized,
+      })
+    )
+  }
+
+Justificación:
+  El logger sanitiza claves sensibles antes de escribir, cumpliendo con el
+  principio de minimización de datos (Art. 14 quáter Ley 21.719).
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: MEDIA]
+[CATEGORÍA: A10:2025 — Mishandling of Exceptional Conditions]
+------------------------------------------------------------------------
+Archivo: Todo el proyecto — ausencia de app/error.tsx
+
+Problema:
+  No hay un app/error.tsx global ni app/global-error.tsx. En Fase 2, los errores
+  no capturados expondrán stack traces de Node.js al cliente (incluyendo rutas
+  del filesystem, versiones de librerías, y estructura de la DB).
+
+Impacto:
+  Information disclosure — un error de Prisma sin capturar puede revelar el
+  esquema de la base de datos o la estructura del servidor.
+
+Código corregido (app/error.tsx):
+  'use client'
+
+  export default function GlobalError({
+    error,
+    reset,
+  }: {
+    error: Error & { digest?: string }
+    reset: () => void
+  }) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-[#0e0a18]">
+        <div className="text-center space-y-4">
+          <h1 className="text-white text-2xl font-serif">Algo salió mal</h1>
+          <p className="text-[#b3acc4] text-sm">
+            Código de referencia: {error.digest ?? 'desconocido'}
+          </p>
+          <button onClick={reset}
+            className="px-6 py-3 bg-[#D4AF37] text-black font-bold rounded-xl">
+            Reintentar
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+Justificación:
+  El error.digest es un hash opaco — permite correlacionar el error en logs del
+  servidor sin exponer información técnica al cliente.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: BAJA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+[LEY 21.719 — Art. 14 ter (Política de privacidad obligatoria)]
+------------------------------------------------------------------------
+Archivo: components/footer.tsx:17-22 / app/checkout/page.tsx:289
+
+Problema:
+  Los links "Términos y Condiciones", "Política de Privacidad", "Política de
+  Cookies" y "Política de Eventos" todos apuntan a href="#". No existen las
+  rutas /privacidad, /terminos, /cookies.
+
+Impacto:
+  Incumplimiento directo de la Ley 21.719 (requiere política de privacidad
+  accesible), y potencialmente la directiva de cookies. Para un sitio de
+  contenido adulto, la ausencia de política de privacidad es una infracción con
+  multas bajo el nuevo marco.
+
+Código actual:
+  const legalLinks = [
+    'Términos y Condiciones',
+    'Política de Privacidad',
+    'Política de Cookies',
+    'Política de Eventos',
+  ]
+  // todos con href="#"
+
+Código corregido:
+  const legalLinks = [
+    { label: 'Términos y Condiciones', href: '/terminos' },
+    { label: 'Política de Privacidad', href: '/privacidad' },
+    { label: 'Política de Cookies', href: '/cookies' },
+    { label: 'Política de Eventos', href: '/politica-eventos' },
+  ]
+
+Justificación:
+  La Política de Privacidad es obligatoria por el Art. 14 ter de la Ley 21.719
+  (vigente desde diciembre 2026). Debe detallar: responsable, finalidad del
+  tratamiento, terceros receptores (WhatsApp/Meta, Vercel Analytics), plazo de
+  retención, y derechos ARCO+P del titular.
+
+
+------------------------------------------------------------------------
+[SEVERIDAD: BAJA]
+[LEY 21.719 — Art. 2 (Datos sensibles) / Art. 14 quáter]
+------------------------------------------------------------------------
+Archivo: Todo el proyecto (ausencia de age gate)
+
+Problema:
+  El sitio declara "Solo para mayores de 18 años" sin ningún mecanismo técnico
+  de verificación. El contenido (vedetos de entretenimiento adulto) clasifica
+  como datos sensibles de vida sexual bajo Art. 2 de la Ley 21.719.
+
+Impacto:
+  Exposición a menores de edad, incumplimiento del deber de protección de datos
+  sensibles (Art. 16), y potencial responsabilidad civil.
+
+Código corregido (components/age-gate.tsx):
+  'use client'
+  import { useState, useEffect } from 'react'
+
+  export function AgeGate({ children }: { children: React.ReactNode }) {
+    const [verified, setVerified] = useState<boolean | null>(null)
+
+    useEffect(() => {
+      setVerified(document.cookie.includes('age_verified=true'))
+    }, [])
+
+    const handleConfirm = () => {
+      document.cookie = 'age_verified=true; path=/; SameSite=Strict; Secure'
+      setVerified(true)
+    }
+
+    if (verified === null) return null
+    if (verified) return <>{children}</>
+
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0e0a18]">
+        <div className="max-w-sm text-center space-y-6 px-8">
+          <h1 className="font-serif text-3xl text-[#D4AF37]">LUXX Producciones</h1>
+          <p className="text-[#F5F5F5] text-sm leading-7">
+            Este sitio contiene contenido para adultos. Al continuar declaras
+            tener 18 años o más.
+          </p>
+          <div className="flex gap-3">
+            <button onClick={handleConfirm}
+              className="flex-1 py-3 bg-[#D4AF37] text-black font-bold rounded-xl">
+              Soy mayor de 18 años
+            </button>
+            <a href="https://www.google.com"
+              className="flex-1 py-3 border border-white/20 text-white rounded-xl
+                         text-sm flex items-center justify-center">
+              Salir
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+Justificación:
+  La verificación de edad es obligatoria para contenido adulto y refuerza el
+  principio de privacidad desde el diseño (Art. 14 quáter). Una cookie de sesión
+  es el estándar mínimo; en Fase 2 puede complementarse con verificación de RUT.
+
+
+================================================================================
+CHECKLIST OWASP — ESTADO POR CATEGORÍA
+================================================================================
+
+A01 — Broken Access Control
+  Estado: ⚠️ PARCIAL (riesgo en Fase 2)
+  - No existe middleware.ts para proteger rutas
+  - IDOR latente en params de checkout (/vedetos/[slug] → /checkout?slug=&tier=)
+  - Requisito Fase 2: middleware.ts con verificación NextAuth en /admin/* y /checkout
+
+A02 — Security Misconfiguration
+  Estado: ❌ DEFICIENTE
+  - ✅ BIEN: poweredByHeader: false (next.config.mjs:16)
+  - ❌ MAL: Sin headers de seguridad (CSP, HSTS, X-Frame-Options, etc.)
+  - ❌ MAL: ignoreBuildErrors: true (next.config.mjs:4)
+  - ❌ MAL: Links legales apuntan a # (footer.tsx:121-129)
+
+A03 — Software and Data Integrity Failures
+  Estado: ❌ CRÍTICO
+  - ❌ swiper@11.1.15 — Prototype Pollution (GHSA-hmx5-qpq5-p643) [CRÍTICA]
+  - ❌ next@16.1.6 — 6 CVEs activos incluyendo DoS CVSS 7.5 [ALTA]
+  - ✅ package-lock.json presente y commiteado
+
+A04 — Cryptographic Failures
+  Estado: ✅ N/A EN FASE 1
+  - No existen contraseñas, JWT, ni secretos en el código actual
+  - Requisitos Fase 2:
+    * Contraseñas con bcrypt >= 12 rounds o argon2id
+    * NEXTAUTH_SECRET mínimo 32 bytes en .env.local (nunca commiteado)
+    * DATABASE_URL en .env.local
+    * Tokens JWT con expiración <= 24h usuarios, <= 1h admin
+    * .env.example commiteado con claves pero sin valores
+
+A05 — Injection
+  Estado: ✅ CUBIERTO
+  - ✅ Sin dangerouslySetInnerHTML en ningún archivo
+  - ✅ Sin eval(), Function() ni ejecución de comandos del usuario
+  - ✅ Routing de [slug] usa .find() contra array en memoria (no SQL)
+  - Requisito Fase 2: Todas las queries deben usar Prisma con parámetros tipados,
+    nunca $queryRawUnsafe ni template literals con input del usuario
+
+A06 — Insecure Design
+  Estado: ❌ DEFICIENTE
+  - ❌ Cálculo de precio en cliente (checkout/page.tsx:57-58)
+  - ❌ Botón de pago deceptivo (type="button" sin acción, con badge "Pago seguro")
+  - Requisito Fase 2: Rate limiting en /api/auth/login (máx. 5 intentos/15min),
+    precio SIEMPRE calculado en servidor, CSRF cubierto por next@16.2.4
+
+A07 — Authentication Failures
+  Estado: ✅ N/A EN FASE 1
+  - No existe sistema de autenticación
+  - Requisitos Fase 2:
+    * NextAuth.js con httpOnly: true, secure: true, sameSite: 'lax'
+    * Bloqueo tras 5 intentos fallidos (rate limiting)
+    * Política de contraseña: 8 chars, 1 mayúscula, 1 número, 1 símbolo
+    * Rotación de sesión al elevar privilegios
+
+A08 — Software/Data Integrity Failures
+  Estado: ✅ CUBIERTO EN FASE 1
+  - ✅ next/font descarga fuentes Google en build time (no CDN externo en runtime)
+  - ✅ Sin scripts externos sin SRI
+  - Requisito Fase 2: Verificar firma HMAC del webhook de confirmación de
+    Transbank antes de procesar cualquier actualización de estado de reserva
+
+A09 — Security Logging and Monitoring Failures
+  Estado: ❌ AUSENTE
+  - Sin logging estructurado
+  - Sin monitoreo ni alertas
+  - Sin integración con Sentry/DataDog/Logtail
+
+A10 — Mishandling of Exceptional Conditions
+  Estado: ⚠️ PARCIAL
+  - ✅ Existe app/vedetos/[slug]/not-found.tsx
+  - ❌ Falta app/error.tsx global
+  - Requisito Fase 2: Nunca exponer stack traces al cliente
+
+
+================================================================================
+CHECKLIST LEY 21.719 (CHILE) — ESTADO POR ARTÍCULO
+================================================================================
+
+Art. 14 quáter — Privacidad desde el diseño
+  Estado: ❌ DEFICIENTE
+  - ❌ Checkout presenta formulario de tarjeta funcional en apariencia pero vacío
+    en implementación — usuarios no pueden inferir que no hace nada
+  - ❌ No existe age gate técnico (solo texto disclamer)
+  - ✅ El sitio actual NO recolecta datos personales (toda interacción va a
+    WhatsApp externo) — esto es inadvertidamente correcto en Fase 1
+
+Bases de licitud (Art. 12)
+  Estado: N/A en Fase 1 (no se recolectan datos)
+  Requisito Fase 2:
+  - Checkbox de consentimiento explícito SEPARADO de los T&C
+  - Formato: [ ] Acepto el tratamiento de mis datos personales para la gestión
+    de reservas según la [Política de Privacidad]
+  - El checkbox de T&C y el de datos personales deben ser controles independientes
+
+Derechos ARCO+P (Art. 18-24)
+  Estado: ❌ NO IMPLEMENTADO
+  - ❌ No existe pantalla de perfil de usuario con ARCO+P
+  - ❌ No hay endpoint de portabilidad de datos
+  Requisito Fase 2:
+  - Implementar /perfil/mis-datos con opciones de:
+    * Descargar datos en JSON (portabilidad)
+    * Solicitar rectificación
+    * Solicitar eliminación de cuenta (con borrado en cascada en PostgreSQL)
+
+Política de retención (Art. 14 ter)
+  Estado: N/A en Fase 1 (no hay datos)
+  Requisito Fase 2:
+  - Definir en política de privacidad el plazo de retención:
+    * Reservas: 3 años (obligaciones tributarias)
+    * Datos de usuario: 1 año post-último acceso
+  - Implementar cron job en Vercel para purga automática
+
+Datos sensibles — Vida sexual (Art. 2)
+  Estado: ❌ NO RECONOCIDO EN EL DISEÑO
+  - El contenido de la plataforma (entretenimiento adulto) implica que cualquier
+    reserva registrada constituye DATO SENSIBLE de vida sexual del usuario
+  Requisito Fase 2:
+  - Registros de reserva que incluyan tipo de show deben:
+    * Cifrarse en reposo (PostgreSQL con columnas cifradas o Prisma Encrypt)
+    * No aparecer en logs en texto plano
+    * Tener control de acceso reforzado — solo propietario y admin con
+      justificación de negocio
+
+Notificación de brechas (Art. 40)
+  Estado: ❌ AUSENTE
+  - No existe proceso documentado ni mecanismo de detección
+  Requisito Fase 2:
+  - La ley exige notificar a la APDP y titulares afectados dentro de 72 HORAS
+  - Implementar: Runbook de respuesta a incidentes, alertas de Vercel/Sentry,
+    y contacto de privacidad designado (privacidad@luxxproducciones.cl)
+
+Política de privacidad (Art. 14 ter)
+  Estado: ❌ NO EXISTE
+  - Los links del footer apuntan a # — no existe la ruta /privacidad
+  La política debe incluir:
+  - Identidad del responsable del tratamiento
+  - Finalidad del tratamiento
+  - Base de licitud
+  - Terceros receptores (Meta/WhatsApp, Vercel/Vercel Analytics)
+  - Plazo de conservación de datos
+  - Derechos del titular (ARCO+P)
+  - Datos de contacto del DPO o responsable de privacidad
+
+
+================================================================================
+MATRIZ DE COBERTURA OWASP TOP 10:2025
+================================================================================
+
+ID    | Categoría                          | Estado        | Severidad  | Nº Hallazgos
+------|------------------------------------|---------------|------------|--------------
+A01   | Broken Access Control              | ⚠️  Parcial   | MEDIA      | 1 (IDOR latente)
+A02   | Security Misconfiguration          | ❌ Deficiente  | ALTA       | 3
+A03   | Software and Data Integrity        | ❌ Crítico     | CRÍTICA    | 2 (swiper + next)
+A04   | Cryptographic Failures             | ✅ N/A Fase 1 | —          | 0
+A05   | Injection                          | ✅ Cubierto   | —          | 0
+A06   | Insecure Design                    | ❌ Deficiente  | ALTA       | 2
+A07   | Authentication Failures            | ✅ N/A Fase 1 | —          | 0
+A08   | Software/Data Integrity            | ✅ Cubierto   | —          | 0
+A09   | Logging & Alerting                 | ❌ Ausente     | MEDIA      | 1
+A10   | Exceptional Conditions             | ⚠️  Parcial   | MEDIA      | 1
+
+Leyenda: ✅ Cubierto  ·  ⚠️ Parcial  ·  ❌ No cubierto  ·  — No aplica en fase actual
+
+
+================================================================================
+RESUMEN EJECUTIVO — ACCIONES PRIORITARIAS
+================================================================================
+
+INMEDIATO (antes del próximo commit):
+  1. npm install next@16.2.4  →  parchea CSRF bypass y DoS activos
+  2. Actualizar swiper a ^12.1.3 con revisión de breaking changes
+  3. Eliminar ignoreBuildErrors: true de next.config.mjs
+  4. Agregar la sección headers() con CSP, HSTS, X-Frame-Options al config
+
+ANTES DE PRESENTACIÓN DE TESIS:
+  5. Crear app/error.tsx global
+  6. Crear rutas /privacidad, /terminos, /cookies con contenido real
+  7. Actualizar links del footer para apuntar a esas rutas
+  8. Implementar AgeGate component en el layout raíz (app/layout.tsx)
+
+REQUERIDO ANTES DE PRODUCCIÓN (Fase 2 backend):
+  9.  Arquitectura de precios server-side (Transbank recibe monto calculado
+      en backend, nunca desde el cliente)
+  10. middleware.ts con validación de sesión NextAuth en rutas protegidas
+  11. Logger estructurado sanitizado (lib/logger.ts)
+  12. Flujo ARCO+P en /perfil/mis-datos
+  13. Cron de retención de datos
+  14. Runbook de respuesta a brechas bajo Art. 40 de la Ley 21.719
+  15. Checkbox de consentimiento separado de T&C en formulario de registro
+  16. Cifrado en reposo de datos de reservas (datos sensibles vida sexual)
+
+
+================================================================================
+FIN DEL INFORME
+================================================================================
+Auditor: Claude Sonnet 4.6 (Anthropic) via Claude Code
+Proyecto: Luxx Producciones — Tesis de Grado
+Fecha: 2026-04-22

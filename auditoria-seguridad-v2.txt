@@ -1,0 +1,545 @@
+================================================================================
+INFORME DE AUDITORÍA DE CIBERSEGURIDAD — LUXX PRODUCCIONES  [v2]
+================================================================================
+Versión auditada: 0.1.0 · Next.js ^16.2.4 · Fecha: 2026-07-08
+Marcos aplicados: OWASP Top 10:2025 + Ley N° 21.719 (Chile)
+Auditor: Claude Fable 5 (Anthropic) via Claude Code
+================================================================================
+
+DELTA DESDE AUDITORÍA v1 (2026-04-22)
+--------------------------------------
+Todos los hallazgos CRÍTICOS y la mayoría de los ALTOS fueron corregidos.
+Esta versión documenta el estado actual, los 2 hallazgos persistentes y
+5 hallazgos nuevos detectados en la segunda revisión.
+
+
+================================================================================
+RESUMEN EJECUTIVO
+================================================================================
+
+HALLAZGOS RESUELTOS DESDE v1           (6 ítems cerrados)
+  ✅ CVE swiper@11.1.15 (Prototype Pollution)  →  swiper@^12.1.3
+  ✅ 6 CVEs next@16.1.6 (CSRF, DoS, Smuggling) →  next@^16.2.4
+  ✅ typescript.ignoreBuildErrors: true         →  eliminado del config
+  ✅ Ausencia total de headers HTTP de seguridad →  CSP, HSTS, X-Frame-Options implementados
+  ✅ Ausencia de app/error.tsx global           →  implementado con digest hash
+  ✅ Age gate solo textual + links legales rotos →  AgeGate component + 4 rutas legales reales
+
+HALLAZGOS PERSISTENTES DESDE v1        (2 ítems abiertos)
+  ⚠️ [ALTA]  A06 — Cálculo de precio y checkout en frontend (sin Transbank)
+  ⚠️ [MEDIA] A01 — IDOR latente en params de URL del checkout
+
+HALLAZGOS NUEVOS EN v2                 (5 ítems nuevos)
+  ⚠️ [MEDIA] CSP 'unsafe-inline' en script-src sin migrar a nonce
+  ⚠️ [MEDIA] Age gate bypasseable por cookie manual sin firma HMAC
+  ⚠️ [MEDIA] netlify.toml sin headers declarados (riesgo de bypass en static assets)
+  ⚠️ [BAJA]  checkout: extras=NaN produce totalAmount=NaN visible en UI
+  ⚠️ [BAJA]  middleware.ts ausente (rutas sin protección de autenticación)
+
+Puntuación global:
+  v1: ❌ 2 CRÍTICOS · ❌ 4 ALTOS · ⚠️ 2 MEDIOS · ⚠️ 2 BAJOS
+  v2: ❌ 0 CRÍTICOS · ⚠️ 1 ALTO  · ⚠️ 4 MEDIOS · ⚠️ 2 BAJOS   ← MEJORA SIGNIFICATIVA
+
+
+================================================================================
+HALLAZGOS PERSISTENTES (sin resolver desde v1)
+================================================================================
+
+
+------------------------------------------------------------------------
+[PERSISTENTE · SEVERIDAD: ALTA]
+[CATEGORÍA: A06:2025 — Insecure Design]
+[LEY 21.719 — Art. 14 quáter (Privacidad desde el diseño)]
+------------------------------------------------------------------------
+Archivo: app/checkout/page.tsx:59-61
+
+Problema:
+  El cálculo del monto total sigue realizándose completamente en el cliente.
+  Los extras se parsean y calculan en el Server Component (líneas 59-61),
+  pero la fuente de verdad del precio proviene de un array en memoria
+  (lib/mock-data.ts), no de una base de datos. El botón "Confirmar reserva"
+  sigue sin integración con Transbank.
+
+Código actual (líneas 59-61):
+  const extras = Math.min(3, Math.max(0, parseInt(params.extras ?? '0', 10)))
+  const extrasTotal = extras * 60000
+  const totalAmount = selectedTier.price + extrasTotal
+
+Riesgo en Fase 2:
+  Si este patrón se replica al integrar Transbank enviando `totalAmount`
+  desde el cliente, un atacante puede manipular query params para obtener
+  precios arbitrarios. El precio enviado a Transbank SIEMPRE debe calcularse
+  en el servidor desde la base de datos.
+
+Código corregido para Fase 2 (app/api/checkout/create-session/route.ts):
+  export async function POST(req: Request) {
+    const { tierId, vedetoSlug, extras } = await req.json()
+
+    // Precio calculado desde BD — el cliente nunca define el monto
+    const tier = await prisma.pricingTier.findUniqueOrThrow({
+      where: { id: tierId, vedeto: { slug: vedetoSlug } },
+    })
+    const safeExtras = Math.min(3, Math.max(0, Number(extras) || 0))
+    const extrasTotal = safeExtras * 60_000
+    const totalAmount = tier.price + extrasTotal
+
+    const tbkResponse = await WebpayPlus.Transaction.create(
+      generateBuyOrder(),
+      generateSessionId(),
+      totalAmount,
+      `${process.env.BASE_URL}/api/checkout/confirm`
+    )
+
+    return Response.json({ url: tbkResponse.url, token: tbkResponse.token })
+  }
+
+Justificación:
+  La regla de oro de los pagos: el servidor es la única fuente de verdad
+  del precio. Transbank nunca debe recibir un monto calculado en el cliente.
+
+
+------------------------------------------------------------------------
+[PERSISTENTE · SEVERIDAD: MEDIA]
+[CATEGORÍA: A01:2025 — Broken Access Control (IDOR latente)]
+------------------------------------------------------------------------
+Archivo: app/vedetos/[slug]/page.tsx (link a checkout con params URL)
+
+Problema:
+  El link de reserva sigue construyendo la URL de checkout con parámetros
+  controlados por el usuario (slug, tier, date, time) sin validación de
+  pertenencia. En Fase 2 con base de datos, si estos params se usan para
+  buscar registros sin validar que el tier pertenece al vedeto indicado,
+  constituye un IDOR explotable.
+
+Riesgo en Fase 2:
+  Un atacante puede construir manualmente:
+  /checkout?slug=vedeto-gratuito&tier=tier-premium-otro-vedeto
+  y obtener un checkout con el tier de otro artista al precio del primero.
+
+Código corregido para Fase 2 (Server Component en checkout/page.tsx):
+  const vedeto = await prisma.vedeto.findUnique({ where: { slug: params.slug } })
+  if (!vedeto) notFound()
+
+  const tier = await prisma.pricingTier.findFirst({
+    where: {
+      id: params.tier,
+      vedetoId: vedeto.id,   // ← Validar pertenencia en BD
+    },
+  })
+  if (!tier) notFound()
+
+Justificación:
+  Los parámetros de URL son hints para la UI, no fuente de verdad para
+  operaciones con impacto económico. La validación de pertenencia en el
+  servidor elimina el IDOR.
+
+
+================================================================================
+HALLAZGOS NUEVOS (detectados en v2 · julio 2026)
+================================================================================
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivo: next.config.mjs:31
+
+Problema:
+  El Content-Security-Policy incluye 'unsafe-inline' en script-src para
+  todos los entornos de producción. Aunque 'unsafe-eval' está correctamente
+  restringido a desarrollo, 'unsafe-inline' anula parte de la protección
+  XSS que ofrece el CSP.
+
+Código actual (línea 31):
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`
+
+Impacto:
+  Cualquier XSS reflejado o almacenado puede ejecutar scripts inline sin
+  que el CSP los bloquee. Esto es especialmente relevante en Fase 2 cuando
+  haya inputs de usuario (formulario de registro, búsquedas).
+
+Código corregido para Fase 2 (nonce-based CSP en middleware.ts):
+  import { NextResponse } from 'next/server'
+  import { randomBytes } from 'crypto'
+
+  export function middleware(request: Request) {
+    const nonce = randomBytes(16).toString('base64')
+    const response = NextResponse.next()
+
+    response.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        `script-src 'self' 'nonce-${nonce}'`,
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://images.unsplash.com",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+      ].join('; ')
+    )
+    response.headers.set('x-nonce', nonce)
+    return response
+  }
+
+Justificación:
+  Con nonce-based CSP, solo los scripts con el nonce correcto (generado
+  por request) se ejecutan. Esto bloquea XSS inline incluso si un atacante
+  inyecta código malicioso.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A06:2025 — Insecure Design]
+[LEY 21.719 — Art. 2 (Datos sensibles) / Verificación de edad]
+------------------------------------------------------------------------
+Archivo: components/age-gate.tsx:19-22
+
+Problema:
+  La verificación de edad se apoya en una cookie de sesión sin firma HMAC.
+  Cualquier usuario técnico puede crear la cookie manualmente en DevTools:
+    document.cookie = 'luxx_age_verified=true; path=/'
+  y bypassear el age gate sin ver la pantalla de verificación.
+
+Código actual (línea 21):
+  document.cookie = `${COOKIE_NAME}=${COOKIE_VALUE}; path=/; SameSite=Strict; Secure`
+
+Impacto:
+  El age gate es bypasseable trivialmente. Para contenido adulto sujeto a
+  Ley 21.719 Art. 2 (datos sensibles de vida sexual), la verificación de
+  edad es un requisito de protección, no solo UI. Un menú de 10 segundos
+  en DevTools anula la barrera.
+
+  Nota: ninguna cookie de sesión del lado cliente ofrece protección real
+  de edad (requiere verificación de identidad oficial). Sin embargo, una
+  cookie firmada eleva el esfuerzo técnico necesario para el bypass.
+
+Código corregido (verificación firmada en servidor — Fase 2):
+  // app/api/age-verify/route.ts
+  import { SignJWT } from 'jose'
+
+  export async function POST() {
+    const secret = new TextEncoder().encode(process.env.AGE_GATE_SECRET)
+    const token = await new SignJWT({ verified: true })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('24h')
+      .sign(secret)
+
+    const response = new Response(JSON.stringify({ ok: true }))
+    response.headers.set(
+      'Set-Cookie',
+      `luxx_av=${token}; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=86400`
+    )
+    return response
+  }
+
+Justificación:
+  Una cookie HttpOnly firmada con JOSE/HS256 no es accesible desde JS
+  del cliente (elimina XSS de robo de cookie) y no puede fabricarse sin
+  conocer el secreto del servidor. En Fase 2 puede complementarse con
+  verificación de RUT vía Registro Civil.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivo: netlify.toml
+
+Problema:
+  El netlify.toml no declara headers HTTP de seguridad. Los headers están
+  definidos en next.config.mjs (vía la función async headers()), pero el
+  plugin @netlify/plugin-nextjs solo garantiza su propagación para rutas
+  SSR/Server Components. Los archivos verdaderamente estáticos del directorio
+  /_next/static/ y el favicon no pasan por el runtime de Next.js y por tanto
+  podrían servirse sin los headers de seguridad.
+
+Código actual (netlify.toml):
+  [build]
+    command = "npm run build"
+    publish = ".next"
+  [[plugins]]
+    package = "@netlify/plugin-nextjs"
+  # ← Sin sección [[headers]]
+
+Código corregido (agregar en netlify.toml):
+  [[headers]]
+    for = "/*"
+    [headers.values]
+      X-Frame-Options = "DENY"
+      X-Content-Type-Options = "nosniff"
+      Referrer-Policy = "strict-origin-when-cross-origin"
+      Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+      Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+  # Los assets estáticos de Next.js son inmutables — cache agresivo
+  [[headers]]
+    for = "/_next/static/*"
+    [headers.values]
+      Cache-Control = "public, max-age=31536000, immutable"
+
+Justificación:
+  Netlify aplica los headers de next.config.mjs a través del plugin, pero
+  declarar los headers también en netlify.toml garantiza cobertura para
+  cualquier asset que no pase por el runtime de Next.js, incluyendo
+  redirects 301/302 a nivel CDN y el archivo favicon.ico.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A03:2025 — Software and Data Integrity (validación de input)]
+------------------------------------------------------------------------
+Archivo: app/checkout/page.tsx:59
+
+Problema:
+  El parámetro `extras` de la URL se parsea con parseInt(), pero si el
+  valor no es un número válido (ej: extras=abc), parseInt devuelve NaN.
+  La cadena de cálculo NaN + 60000 = NaN hace que `totalAmount` sea NaN,
+  lo que se muestra en la UI formateado como "$NaN" o "$0" según el
+  navegador.
+
+Código actual (línea 59):
+  const extras = Math.min(3, Math.max(0, parseInt(params.extras ?? '0', 10)))
+
+  // Si params.extras = "abc":
+  // parseInt("abc", 10) → NaN
+  // Math.max(0, NaN)    → NaN  (Math.max con NaN devuelve NaN)
+  // Math.min(3, NaN)    → NaN
+  // extrasTotal = NaN * 60000 = NaN
+  // totalAmount = precio + NaN = NaN
+
+Código corregido (línea 59):
+  const rawExtras = parseInt(params.extras ?? '0', 10)
+  const extras = Number.isNaN(rawExtras) ? 0 : Math.min(3, Math.max(0, rawExtras))
+
+Justificación:
+  La guardia explícita con Number.isNaN() previene que un parámetro
+  malformado llegue al cálculo. Es una corrección de 2 líneas que puede
+  aplicarse ahora en Fase 1.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A01:2025 — Broken Access Control]
+------------------------------------------------------------------------
+Archivo: (ausente) — middleware.ts no existe en el proyecto
+
+Problema:
+  No existe un middleware.ts en la raíz del proyecto. Sin él, todas las
+  rutas del sitio son públicamente accesibles en Fase 2, incluyendo las
+  rutas de administración (/admin/*) y operaciones de pago.
+
+Impacto en Fase 2:
+  Sin middleware que valide la sesión NextAuth, cualquier usuario puede
+  acceder a rutas protegidas simplemente conociendo la URL.
+
+Esqueleto requerido para Fase 2 (middleware.ts):
+  import { withAuth } from 'next-auth/middleware'
+
+  export default withAuth({
+    pages: { signIn: '/login' },
+  })
+
+  export const config = {
+    matcher: [
+      '/admin/:path*',
+      '/api/checkout/:path*',
+      '/api/admin/:path*',
+    ],
+  }
+
+Justificación:
+  El middleware de NextAuth verifica el token de sesión en el Edge antes
+  de que la request llegue al Server Component, bloqueando acceso no
+  autorizado sin costo de rendering.
+
+
+================================================================================
+CHECKLIST OWASP — ESTADO ACTUALIZADO (v2 · julio 2026)
+================================================================================
+
+A01 — Broken Access Control
+  Estado: ⚠️ PARCIAL (riesgo en Fase 2)
+  - ❌ Sin middleware.ts para proteger rutas [NUEVO-BAJA]
+  - ❌ IDOR latente en params de checkout [PERSISTENTE-MEDIA]
+  - ✅ No existe acceso a BD — el riesgo es potencial, no activo en Fase 1
+
+A02 — Security Misconfiguration
+  Estado: ⚠️ MEJORADO (era ❌ DEFICIENTE)
+  - ✅ poweredByHeader: false
+  - ✅ Headers de seguridad implementados (CSP, HSTS, X-Frame-Options)
+  - ✅ ignoreBuildErrors eliminado
+  - ✅ Links legales apuntan a rutas reales
+  - ❌ CSP usa 'unsafe-inline' en script-src [NUEVO-MEDIA]
+  - ❌ netlify.toml sin headers declarados [NUEVO-MEDIA]
+
+A03 — Software and Data Integrity Failures
+  Estado: ✅ CORREGIDO (era ❌ CRÍTICO)
+  - ✅ swiper@^12.1.3 (parcheado)
+  - ✅ next@^16.2.4 (6 CVEs resueltos)
+  - ⚠️ extras=NaN produce totalAmount=NaN [NUEVO-BAJA]
+
+A04 — Cryptographic Failures
+  Estado: ✅ N/A EN FASE 1
+  - Requisitos Fase 2: bcrypt>=12, NEXTAUTH_SECRET>=32 bytes, JWT<=24h
+  - ✅ .env.example documenta todas las claves necesarias sin valores reales
+
+A05 — Injection
+  Estado: ✅ CUBIERTO
+  - ✅ Sin dangerouslySetInnerHTML en ningún archivo TSX
+  - ✅ Sin eval(), Function() ni ejecución de comandos del usuario
+  - ✅ Routing de [slug] usa .find() contra array en memoria (no SQL)
+
+A06 — Insecure Design
+  Estado: ⚠️ PARCIAL (era ❌ DEFICIENTE)
+  - ❌ Precio en frontend sin integración Transbank [PERSISTENTE-ALTA]
+  - ❌ Age gate bypasseable por cookie manual [NUEVO-MEDIA]
+  - ✅ Botón de checkout ya no presenta badges "Pago seguro" engañosos
+
+A07 — Authentication Failures
+  Estado: ✅ N/A EN FASE 1
+  - Requisitos Fase 2: NextAuth httpOnly+secure+sameSite, rate limiting
+    5 intentos/15min, política de contraseña, rotación de sesión
+
+A08 — Software/Data Integrity Failures
+  Estado: ✅ CUBIERTO
+  - ✅ next/font descarga fuentes en build time (no CDN externo en runtime)
+  - ✅ Sin scripts externos sin SRI
+  - Requisito Fase 2: HMAC del webhook Transbank
+
+A09 — Security Logging and Monitoring Failures
+  Estado: ⚠️ PARCIAL (era ❌ AUSENTE)
+  - ✅ .env.example documenta SENTRY_DSN como variable prevista
+  - ❌ Sin logging estructurado implementado aún
+  - ❌ Sin integración activa con Sentry/Logtail
+
+A10 — Mishandling of Exceptional Conditions
+  Estado: ✅ CORREGIDO (era ⚠️ PARCIAL)
+  - ✅ app/error.tsx global con digest hash y botón de retry
+  - ✅ app/vedetos/[slug]/not-found.tsx
+  - ✅ error.message nunca se expone al cliente (solo error.digest)
+
+
+================================================================================
+CHECKLIST LEY 21.719 — ESTADO ACTUALIZADO (v2 · julio 2026)
+================================================================================
+
+Art. 14 quáter — Privacidad desde el diseño
+  Estado: ⚠️ MEJORADO (era ❌ DEFICIENTE)
+  - ✅ AgeGate implementado en layout.tsx (cubre todas las rutas)
+  - ✅ Cookie SameSite=Strict + Secure
+  - ❌ Age gate bypasseable sin firma de servidor [NUEVO-MEDIA]
+  - ❌ Precio en cliente — patrón inseguro para Fase 2 [PERSISTENTE-ALTA]
+
+Bases de licitud (Art. 12)
+  Estado: N/A en Fase 1
+  Requisito Fase 2: Checkbox de consentimiento SEPARADO de T&C
+
+Derechos ARCO+P (Art. 18-24)
+  Estado: ❌ NO IMPLEMENTADO
+  Requisito Fase 2: /perfil/mis-datos con descarga JSON, rectificación,
+  eliminación de cuenta con borrado en cascada
+
+Política de privacidad (Art. 14 ter)
+  Estado: ✅ CORREGIDO (era ❌ NO EXISTE)
+  - ✅ Ruta /privacidad implementada y enlazada desde el footer
+  - ✅ Ruta /terminos implementada
+  - ✅ Ruta /cookies implementada
+  - ✅ Ruta /politica-eventos implementada
+
+Datos sensibles — Vida sexual (Art. 2)
+  Estado: ⚠️ RECONOCIDO, SIN IMPLEMENTAR
+  Requisito Fase 2: Cifrado en reposo de registros de reserva
+
+Notificación de brechas (Art. 40)
+  Estado: ❌ AUSENTE
+  Requisito Fase 2: Runbook de respuesta, alerta Sentry, contacto DPO,
+  notificación a APDP y titulares en ≤ 72 horas
+
+Política de retención (Art. 14 ter)
+  Estado: N/A en Fase 1
+  Requisito Fase 2: Reservas 3 años (fiscal), usuario 1 año post-acceso,
+  cron job de purga automática en Vercel/Netlify
+
+
+================================================================================
+MATRIZ DE COBERTURA OWASP TOP 10:2025 — COMPARATIVA v1 vs v2
+================================================================================
+
+ID    | Categoría                     | v1            | v2            | Delta
+------|-------------------------------|---------------|---------------|-------
+A01   | Broken Access Control         | ⚠️ Parcial    | ⚠️ Parcial    | =
+A02   | Security Misconfiguration     | ❌ Deficiente  | ⚠️ Mejorado   | ↑
+A03   | Software and Data Integrity   | ❌ Crítico     | ✅ Corregido  | ↑↑
+A04   | Cryptographic Failures        | ✅ N/A F1     | ✅ N/A F1     | =
+A05   | Injection                     | ✅ Cubierto   | ✅ Cubierto   | =
+A06   | Insecure Design               | ❌ Deficiente  | ⚠️ Parcial    | ↑
+A07   | Authentication Failures       | ✅ N/A F1     | ✅ N/A F1     | =
+A08   | Software/Data Integrity       | ✅ Cubierto   | ✅ Cubierto   | =
+A09   | Logging & Alerting            | ❌ Ausente     | ⚠️ Parcial    | ↑
+A10   | Exceptional Conditions        | ⚠️ Parcial    | ✅ Corregido  | ↑
+
+Leyenda: ✅ Cubierto · ⚠️ Parcial · ❌ No cubierto · — N/A · ↑ Mejora · = Sin cambio
+
+
+================================================================================
+ACCIONES PRIORITARIAS — PLAN v2
+================================================================================
+
+INMEDIATO (corrección mínima, antes del próximo commit):
+  1. checkout/page.tsx:59 — Agregar guardia Number.isNaN() para extras
+     (2 líneas, riesgo NaN en UI)
+
+ANTES DE PRESENTACIÓN DE TESIS (próximas 2 semanas):
+  2. netlify.toml — Agregar sección [[headers]] con los 5 headers de
+     seguridad para garantizar cobertura en assets estáticos
+  3. CSP — Documentar la deuda técnica de 'unsafe-inline' y agregar un
+     comentario en next.config.mjs indicando que debe migrarse a nonce
+     antes de ir a producción con formularios de usuario
+
+REQUERIDO ANTES DE PRODUCCIÓN (Fase 2 backend):
+  4.  API route /api/checkout/create-session — precio calculado en servidor
+  5.  middleware.ts — Protección de rutas /admin/* y /api/checkout/*
+  6.  Age gate con cookie HttpOnly firmada (JOSE/HS256)
+  7.  CSP nonce-based en middleware (eliminar 'unsafe-inline')
+  8.  Logger estructurado sanitizado (lib/logger.ts)
+  9.  Integración Sentry con DSN (ya documentado en .env.example)
+  10. Flujo ARCO+P en /perfil/mis-datos
+  11. Cron de retención de datos (3 años reservas, 1 año usuario)
+  12. Runbook de respuesta a brechas bajo Art. 40 de la Ley 21.719
+  13. Checkbox de consentimiento separado de T&C
+  14. Cifrado en reposo de datos de reservas (datos sensibles vida sexual)
+  15. HMAC del webhook de confirmación Transbank
+
+
+================================================================================
+HALLAZGOS QUE NO REQUIEREN ACCIÓN (correctamente implementados)
+================================================================================
+
+  ✅ poweredByHeader: false — Next.js no expone versión en headers
+  ✅ X-Frame-Options: DENY — Clickjacking bloqueado
+  ✅ X-Content-Type-Options: nosniff — MIME sniffing bloqueado
+  ✅ HSTS max-age=31536000; includeSubDomains — Fuerza HTTPS
+  ✅ Permissions-Policy: camera=(), microphone=(), geolocation=()
+  ✅ frame-ancestors 'none' en CSP (refuerza X-Frame-Options)
+  ✅ Sin dangerouslySetInnerHTML en ningún componente
+  ✅ Sin eval() ni Function() en código de la aplicación
+  ✅ next/font descarga fuentes en build time (sin CDN externo en runtime)
+  ✅ app/error.tsx no expone error.message al cliente (solo error.digest)
+  ✅ .env.example sin valores reales — correctamente commiteado
+  ✅ package-lock.json presente y commiteado
+  ✅ AgeGate en root layout — cubre todas las rutas de la aplicación
+  ✅ Cookie age gate: SameSite=Strict + Secure
+  ✅ 4 rutas legales implementadas (/privacidad, /terminos, /cookies,
+     /politica-eventos) con contenido real referenciando Ley 21.719
+  ✅ 'unsafe-eval' restringido exclusivamente a NODE_ENV=development
+
+
+================================================================================
+FIN DEL INFORME
+================================================================================
+Auditor: Claude Fable 5 (Anthropic) via Claude Code
+Proyecto: Luxx Producciones — Tesis de Grado
+Fecha de esta auditoría: 2026-07-08
+Auditoría previa: 2026-04-22 (v1)

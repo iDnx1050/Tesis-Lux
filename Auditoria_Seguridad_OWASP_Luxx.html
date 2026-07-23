@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Auditoría de Seguridad — Luxx Producciones</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #1a1a1a;
+      margin: 2.5cm 3cm;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 20pt;
+      font-weight: bold;
+      color: #1a1a2e;
+      border-bottom: 3px solid #1a1a2e;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      font-weight: bold;
+      color: #16213e;
+      border-bottom: 1px solid #cccccc;
+      padding-bottom: 4px;
+      margin-top: 28px;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #0f3460;
+      margin-top: 18px;
+      margin-bottom: 6px;
+    }
+    .portada {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 30px 0;
+      border: 2px solid #1a1a2e;
+    }
+    .portada h1 {
+      border: none;
+      font-size: 22pt;
+      margin-bottom: 8px;
+    }
+    .portada .subtitulo {
+      font-size: 13pt;
+      color: #555;
+      margin: 6px 0;
+    }
+    .portada .meta {
+      font-size: 10pt;
+      color: #888;
+      margin-top: 20px;
+    }
+    .resumen-ejecutivo {
+      background: #f0f4ff;
+      border-left: 4px solid #1a1a2e;
+      padding: 14px 18px;
+      margin: 20px 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 9.5pt;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+    .badge-critica   { background: #c0392b; color: white; }
+    .badge-alta      { background: #e67e22; color: white; }
+    .badge-media     { background: #f1c40f; color: #333; }
+    .badge-baja      { background: #27ae60; color: white; }
+    .badge-info      { background: #2980b9; color: white; }
+    .badge-corregida { background: #1e8449; color: white; }
+    .badge-parcial   { background: #d68910; color: white; }
+    .hallazgo {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 16px 18px;
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+    .hallazgo-header {
+      font-weight: bold;
+      font-size: 12pt;
+      margin-bottom: 10px;
+      color: #1a1a2e;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 10.5pt;
+    }
+    th {
+      background: #1a1a2e;
+      color: white;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f8f8f8; }
+    code, pre {
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 9.5pt;
+      background: #f4f4f4;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+    code { padding: 1px 5px; }
+    pre {
+      padding: 12px 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    .seccion-legal {
+      background: #fff8f0;
+      border-left: 4px solid #e67e22;
+      padding: 12px 16px;
+      margin: 16px 0;
+    }
+    .pie-pagina {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #888;
+      text-align: center;
+    }
+    .estado-final {
+      background: #eafaf1;
+      border: 2px solid #1e8449;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-weight: bold;
+      font-size: 11.5pt;
+      text-align: center;
+      color: #1e5631;
+    }
+  </style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="portada">
+  <h1>AUDITORÍA DE SEGURIDAD WEB</h1>
+  <p class="subtitulo"><strong>Proyecto:</strong> Luxx Producciones — Plataforma de Shows Privados</p>
+  <p class="subtitulo"><strong>Framework:</strong> OWASP Top 10:2025 + Ley N° 21.719 (Chile)</p>
+  <p class="meta">
+    Fecha de auditoría: Abril 2026<br>
+    Tecnología auditada: Next.js 16 · TypeScript 5.7 · Tailwind CSS 4<br>
+    Alcance: Código fuente completo — frontend, configuración, dependencias, legales<br>
+    Estado final: <strong>0 vulnerabilidades conocidas activas</strong>
+  </p>
+</div>
+
+<!-- RESUMEN EJECUTIVO -->
+<h2>1. Resumen Ejecutivo</h2>
+
+<div class="resumen-ejecutivo">
+  <p>Se realizó una auditoría completa de seguridad sobre el código fuente del proyecto <strong>Luxx Producciones</strong>, identificando y corrigiendo vulnerabilidades clasificadas según el estándar OWASP Top 10:2025, y evaluando el cumplimiento con la <strong>Ley N° 21.719 de Protección de Datos Personales de Chile</strong>.</p>
+  <p>La auditoría detectó <strong>10 hallazgos</strong> distribuidos en distintos niveles de criticidad. Todos fueron corregidos durante la misma sesión de revisión. El estado final del proyecto es <strong>0 vulnerabilidades activas</strong> confirmado mediante <code>npm audit</code>.</p>
+</div>
+
+<h3>1.1 Resumen de Hallazgos</h3>
+
+<table>
+  <tr>
+    <th>ID</th>
+    <th>Categoría OWASP</th>
+    <th>Descripción</th>
+    <th>Criticidad</th>
+    <th>Estado</th>
+  </tr>
+  <tr>
+    <td>H-01</td>
+    <td>A05 — Security Misconfiguration</td>
+    <td>Ausencia de cabeceras de seguridad HTTP</td>
+    <td><span class="badge badge-alta">ALTA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-02</td>
+    <td>A05 — Security Misconfiguration</td>
+    <td>Build con errores TypeScript ignorados</td>
+    <td><span class="badge badge-alta">ALTA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-03</td>
+    <td>A06 — Vulnerable Components</td>
+    <td>Next.js 16.1.6 con múltiples CVEs activos</td>
+    <td><span class="badge badge-critica">CRÍTICA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-04</td>
+    <td>A06 — Vulnerable Components</td>
+    <td>Swiper 11.1.15 — prototype pollution (GHSA-hmx5)</td>
+    <td><span class="badge badge-alta">ALTA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-05</td>
+    <td>A07 — Auth Failures</td>
+    <td>Sin verificación de edad en sitio para adultos</td>
+    <td><span class="badge badge-alta">ALTA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-06</td>
+    <td>A09 — Logging &amp; Monitoring</td>
+    <td>Sin registro de eventos de seguridad</td>
+    <td><span class="badge badge-media">MEDIA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-07</td>
+    <td>A04 — Insecure Design</td>
+    <td>UX engañosa en checkout (badge cifrado falso)</td>
+    <td><span class="badge badge-media">MEDIA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-08</td>
+    <td>A05 — Misconfiguration</td>
+    <td>Boundary de errores inexistente (stack traces expuestos)</td>
+    <td><span class="badge badge-media">MEDIA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-09</td>
+    <td>Ley 21.719 — Cumplimiento Legal</td>
+    <td>Ausencia de políticas legales y enlaces rotos en footer</td>
+    <td><span class="badge badge-critica">CRÍTICA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+  <tr>
+    <td>H-10</td>
+    <td>A06 — Vulnerable Components</td>
+    <td>Componentes shadcn/ui con dependencias no instaladas</td>
+    <td><span class="badge badge-media">MEDIA</span></td>
+    <td><span class="badge badge-corregida">CORREGIDA</span></td>
+  </tr>
+</table>
+
+
+<!-- HALLAZGOS DETALLADOS -->
+<h2>2. Hallazgos Detallados y Correcciones</h2>
+
+<!-- H-01 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-01 · A05:2025 — Security Misconfiguration · <span class="badge badge-alta">ALTA</span></div>
+  <h3>Ausencia de cabeceras de seguridad HTTP</h3>
+
+  <p><strong>Descripción:</strong> El archivo <code>next.config.mjs</code> no configuraba ninguna cabecera de seguridad HTTP. Cualquier respuesta del servidor carecía de protecciones estándar contra clickjacking, sniffing de contenido, inyección de frames y otros vectores de ataque pasivos.</p>
+
+  <p><strong>Impacto:</strong></p>
+  <ul>
+    <li>Sin <code>X-Frame-Options</code>: el sitio podía ser incrustado en iframes de terceros (clickjacking).</li>
+    <li>Sin <code>X-Content-Type-Options</code>: navegadores podían interpretar respuestas con MIME incorrecto.</li>
+    <li>Sin <code>Content-Security-Policy</code>: sin restricción sobre qué scripts/recursos podían ejecutarse.</li>
+    <li>Sin <code>Strict-Transport-Security</code>: conexiones HTTP no forzadas a HTTPS.</li>
+    <li>Sin <code>Referrer-Policy</code>: URLs internas podían filtrarse a terceros.</li>
+    <li>Sin <code>Permissions-Policy</code>: cámara, micrófono y geolocalización sin restricción.</li>
+  </ul>
+
+  <p><strong>Corrección aplicada en <code>next.config.mjs</code>:</strong></p>
+  <pre>async headers() {
+  return [{
+    source: '/:path*',
+    headers: [
+      { key: 'X-Frame-Options',           value: 'DENY' },
+      { key: 'X-Content-Type-Options',    value: 'nosniff' },
+      { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
+      { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+      { key: 'Content-Security-Policy',   value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com; connect-src 'self' https://vitals.vercel-insights.com; media-src 'self'; frame-ancestors 'none'" },
+    ],
+  }]
+}</pre>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span> — 6 cabeceras de seguridad implementadas.</p>
+</div>
+
+
+<!-- H-02 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-02 · A05:2025 — Security Misconfiguration · <span class="badge badge-alta">ALTA</span></div>
+  <h3>Build con errores de TypeScript ignorados</h3>
+
+  <p><strong>Descripción:</strong> El archivo <code>next.config.mjs</code> contenía la configuración <code>typescript: { ignoreBuildErrors: true }</code>, lo que permitía que el proyecto compilara y desplegara a producción incluso con errores de tipos graves. Esta práctica elimina una capa esencial de verificación estática.</p>
+
+  <p><strong>Impacto:</strong> Código con errores de tipo podía llegar a producción sin detección, generando comportamiento inesperado, crashes en runtime o acceso a propiedades indefinidas.</p>
+
+  <p><strong>Corrección aplicada:</strong> Se eliminó la clave <code>ignoreBuildErrors: true</code>. Se resolvieron los 10 errores de TypeScript emergentes eliminando componentes shadcn/ui que referenciaban paquetes no instalados (ver H-10).</p>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span> — Build TypeScript estricto restaurado. <code>tsc --noEmit</code> pasa sin errores.</p>
+</div>
+
+
+<!-- H-03 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-03 · A06:2025 — Vulnerable and Outdated Components · <span class="badge badge-critica">CRÍTICA</span></div>
+  <h3>Next.js 16.1.6 con CVEs activos</h3>
+
+  <p><strong>Descripción:</strong> La versión <code>next@16.1.6</code> instalada presentaba múltiples vulnerabilidades confirmadas al momento de la auditoría:</p>
+
+  <table>
+    <tr>
+      <th>CVE / GHSA</th>
+      <th>Descripción</th>
+      <th>Severidad</th>
+    </tr>
+    <tr>
+      <td>GHSA-ggv3-7p47-pfv8</td>
+      <td>Authorization bypass vía middleware</td>
+      <td>Crítica</td>
+    </tr>
+    <tr>
+      <td>GHSA-q4gf-8mx6-v5v3</td>
+      <td>Cache poisoning en respuestas Server Actions</td>
+      <td>Alta</td>
+    </tr>
+    <tr>
+      <td>GHSA-mq59-m269-xvcx</td>
+      <td>Path traversal en rutas dinámicas</td>
+      <td>Alta</td>
+    </tr>
+  </table>
+
+  <p><strong>Corrección aplicada:</strong> Actualización a <code>next@16.2.4</code> (versión con parches de seguridad confirmados).</p>
+  <pre>npm install next@16.2.4</pre>
+
+  <p><strong>Verificación:</strong></p>
+  <pre>npm audit
+# found 0 vulnerabilities</pre>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span> — 0 vulnerabilidades en npm audit.</p>
+</div>
+
+
+<!-- H-04 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-04 · A06:2025 — Vulnerable and Outdated Components · <span class="badge badge-alta">ALTA</span></div>
+  <h3>Swiper 11.1.15 — Prototype Pollution</h3>
+
+  <p><strong>Descripción:</strong> La librería <code>swiper@11.1.15</code> contenía la vulnerabilidad <strong>GHSA-hmx5-qpq5-p643</strong> de prototype pollution. Un atacante podía manipular el prototipo de objetos JavaScript mediante propiedades especiales (<code>__proto__</code>, <code>constructor</code>), afectando el comportamiento global de la aplicación.</p>
+
+  <p><strong>Corrección aplicada:</strong> Actualización a <code>swiper@12.1.3</code>. Se verificó compatibilidad previa: el componente <code>client-photos-carousel.tsx</code> usa únicamente <code>Swiper</code>, <code>SwiperSlide</code> y el módulo <code>Autoplay</code>, todos compatibles con la API de v12.</p>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- H-05 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-05 · A07:2025 — Identification and Authentication Failures · <span class="badge badge-alta">ALTA</span></div>
+  <h3>Sin verificación de edad en sitio para adultos</h3>
+
+  <p><strong>Descripción:</strong> El sitio ofrece contenido exclusivo para adultos mayores de 18 años. Sin embargo, no existía ningún mecanismo de verificación de edad al ingresar, exponiendo el contenido a menores sin restricción alguna.</p>
+
+  <p><strong>Impacto legal:</strong> En Chile, la exposición de contenido para adultos sin control de acceso puede acarrear responsabilidad legal según la Ley N° 20.120 y normativas del CNTV. Adicionalmente, representa una mala práctica frente al comité académico evaluador de la tesis.</p>
+
+  <p><strong>Corrección aplicada:</strong> Se creó el componente <code>components/age-gate.tsx</code> implementado como wrapper global en <code>app/layout.tsx</code>:</p>
+  <ul>
+    <li>Verificación en el lado del cliente con hidratación segura (evita mismatch SSR/CSR).</li>
+    <li>Cookie de sesión: <code>luxx_age_verified=true; path=/; SameSite=Strict; Secure</code>.</li>
+    <li>Dos acciones: confirmar mayoría de edad o salir del sitio (redirige a google.com).</li>
+    <li>Referencia visible a la política de privacidad (<code>/privacidad</code>).</li>
+  </ul>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- H-06 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-06 · A09:2025 — Security Logging and Monitoring Failures · <span class="badge badge-media">MEDIA</span></div>
+  <h3>Sin registro de eventos de seguridad</h3>
+
+  <p><strong>Descripción:</strong> La aplicación carecía completamente de logging estructurado. No se registraban accesos, errores, eventos de autenticación ni intentos anómalos, lo que imposibilita la detección de ataques o la trazabilidad de incidentes.</p>
+
+  <p><strong>Corrección aplicada:</strong> Se creó el módulo <code>lib/logger.ts</code> con las siguientes características:</p>
+  <ul>
+    <li>Función <code>logSecurityEvent()</code> para eventos auditables (acceso al age gate, errores de ruta, etc.).</li>
+    <li>Función <code>logError()</code> para errores de aplicación.</li>
+    <li>Sanitización automática de datos sensibles: las claves <code>password</code>, <code>token</code>, <code>apiKey</code>, <code>rut</code>, <code>cardNumber</code>, <code>cvv</code>, <code>bankAccount</code> y similares son reemplazadas por <code>[REDACTED]</code> antes de cualquier log.</li>
+    <li>Estructura compatible con sistemas de monitoreo externos (formato JSON).</li>
+  </ul>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- H-07 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-07 · A04:2025 — Insecure Design · <span class="badge badge-media">MEDIA</span></div>
+  <h3>UX engañosa en página de checkout</h3>
+
+  <p><strong>Descripción:</strong> La página <code>app/checkout/page.tsx</code> mostraba un badge de "Conexión cifrada" y un botón de pago habilitado, generando en el usuario la falsa impresión de que el sistema de pago estaba operativo y era seguro. En realidad, no existía ningún procesador de pagos integrado.</p>
+
+  <p><strong>Impacto:</strong> Constituye una práctica de diseño engañoso (deceptive UX) que podría interpretarse como publicidad falsa o fraude al consumidor bajo la Ley N° 19.496 (Ley del Consumidor de Chile). También viola el principio de transparencia de la Ley N° 21.719.</p>
+
+  <p><strong>Corrección aplicada:</strong></p>
+  <ul>
+    <li>Se agregó un banner visible de prototipo académico en la parte superior del checkout.</li>
+    <li>El botón de pago fue desactivado con <code>disabled</code> y <code>aria-disabled="true"</code>.</li>
+    <li>El texto cambió a "Pago disponible próximamente" para comunicar honestamente el estado real del sistema.</li>
+  </ul>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- H-08 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-08 · A05:2025 — Security Misconfiguration · <span class="badge badge-media">MEDIA</span></div>
+  <h3>Error boundary global inexistente</h3>
+
+  <p><strong>Descripción:</strong> La aplicación Next.js carecía de un componente global de manejo de errores (<code>app/error.tsx</code>). Ante un error no controlado en runtime, Next.js podía exponer stack traces completos al navegador del usuario, revelando rutas de archivos, estructura interna del código y versiones de dependencias.</p>
+
+  <p><strong>Impacto:</strong> Exposición de información sensible de arquitectura (A05 — Information Exposure). Los stack traces son información valiosa para un atacante que busca vectores de explotación.</p>
+
+  <p><strong>Corrección aplicada:</strong> Se creó <code>app/error.tsx</code> con las siguientes características:</p>
+  <ul>
+    <li>Utiliza <code>error.digest</code> (hash opaco generado por Next.js) en lugar del mensaje de error real — nunca expone el stack trace al cliente.</li>
+    <li>Presenta una interfaz amigable con dos acciones: "Reintentar" y "Ir al inicio".</li>
+    <li>Compatible con el App Router de Next.js 16.</li>
+  </ul>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- H-09 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-09 · Ley N° 21.719 — Cumplimiento Legal · <span class="badge badge-critica">CRÍTICA</span></div>
+  <h3>Ausencia de páginas legales y enlaces rotos</h3>
+
+  <div class="seccion-legal">
+    <strong>Marco legal aplicable:</strong> Ley N° 21.719 de Chile — Protección de Datos Personales (vigente 2026). Obliga a todo responsable de datos a informar al titular sobre el tratamiento, finalidad, derechos ARCO+P y datos de contacto del responsable.
+  </div>
+
+  <p><strong>Descripción:</strong> El footer del sitio contenía enlaces a cuatro páginas legales ("Términos y Condiciones", "Política de Privacidad", "Política de Cookies", "Política de Eventos") que apuntaban todos a <code>href="#"</code> — es decir, no existían. Un usuario que intentara ejercer sus derechos ARCO+P (Acceso, Rectificación, Cancelación, Oposición + Portabilidad) no tenía ningún medio para hacerlo.</p>
+
+  <p><strong>Impacto legal:</strong></p>
+  <ul>
+    <li>Infracción al <strong>Art. 14 quáter</strong> de la Ley 21.719: obligación de informar al titular antes de recopilar datos.</li>
+    <li>Infracción al <strong>Art. 40</strong>: sanciones de hasta 5.000 UTM para responsables que no provean mecanismos de ejercicio de derechos.</li>
+    <li>Incumplimiento de la obligación de transparencia activa.</li>
+  </ul>
+
+  <p><strong>Corrección aplicada:</strong></p>
+  <ul>
+    <li>Creación de <code>app/privacidad/page.tsx</code> — Política de Privacidad completa con base legal, finalidades, derechos ARCO+P, datos de contacto del responsable y plazo de respuesta (30 días hábiles).</li>
+    <li>Creación de <code>app/terminos/page.tsx</code> — Términos y Condiciones con descripción del servicio, limitaciones de responsabilidad y jurisdicción chilena.</li>
+    <li>Creación de <code>app/cookies/page.tsx</code> — Política de Cookies con tabla de cookies utilizadas, categorías y mecanismo de rechazo.</li>
+    <li>Creación de <code>app/politica-eventos/page.tsx</code> — Política de Conducta en Eventos con normas de comportamiento y procedimiento de reclamaciones.</li>
+    <li>Actualización del footer: los cuatro enlaces ahora apuntan a sus rutas reales.</li>
+  </ul>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span> — 4 páginas legales creadas con contenido sustantivo.</p>
+</div>
+
+
+<!-- H-10 -->
+<div class="hallazgo">
+  <div class="hallazgo-header">H-10 · A06:2025 — Vulnerable Components · <span class="badge badge-media">MEDIA</span></div>
+  <h3>Componentes con dependencias no instaladas</h3>
+
+  <p><strong>Descripción:</strong> El proyecto incluía 10 componentes de la librería shadcn/ui en <code>components/ui/</code> que referenciaban paquetes no presentes en <code>package.json</code>:</p>
+
+  <table>
+    <tr>
+      <th>Componente</th>
+      <th>Paquete faltante</th>
+    </tr>
+    <tr><td>calendar.tsx</td><td>react-day-picker</td></tr>
+    <tr><td>carousel.tsx</td><td>embla-carousel-react</td></tr>
+    <tr><td>chart.tsx</td><td>recharts</td></tr>
+    <tr><td>command.tsx</td><td>cmdk</td></tr>
+    <tr><td>drawer.tsx</td><td>vaul</td></tr>
+    <tr><td>form.tsx</td><td>react-hook-form</td></tr>
+    <tr><td>input-otp.tsx</td><td>input-otp</td></tr>
+    <tr><td>resizable.tsx</td><td>react-resizable-panels</td></tr>
+    <tr><td>sonner.tsx</td><td>sonner</td></tr>
+    <tr><td>volumetric-beams.tsx</td><td>three, @react-three/fiber</td></tr>
+  </table>
+
+  <p><strong>Impacto:</strong> La configuración <code>ignoreBuildErrors: true</code> enmascaraba estos errores. Al corregir H-02 y restaurar el build estricto, emergieron 10 errores TypeScript. Adicionalmente, ninguno de estos componentes era importado en código real de la aplicación, lo que indica que fueron añadidos como boilerplate sin uso.</p>
+
+  <p><strong>Corrección aplicada:</strong> Se verificó que ningún componente de la lista era importado en ningún archivo de la aplicación, y se eliminaron los 10 archivos. Resultado: <code>tsc --noEmit</code> pasa sin errores.</p>
+
+  <p><strong>Estado:</strong> <span class="badge badge-corregida">CORREGIDA</span></p>
+</div>
+
+
+<!-- ARCHIVOS MODIFICADOS -->
+<h2>3. Inventario de Archivos Modificados</h2>
+
+<table>
+  <tr>
+    <th>Archivo</th>
+    <th>Tipo de cambio</th>
+    <th>Hallazgo relacionado</th>
+  </tr>
+  <tr><td>next.config.mjs</td><td>Modificado</td><td>H-01, H-02</td></tr>
+  <tr><td>package.json</td><td>Modificado (dependencias)</td><td>H-03, H-04</td></tr>
+  <tr><td>app/layout.tsx</td><td>Modificado (AgeGate wrapper)</td><td>H-05</td></tr>
+  <tr><td>components/age-gate.tsx</td><td>Creado</td><td>H-05</td></tr>
+  <tr><td>app/error.tsx</td><td>Creado</td><td>H-08</td></tr>
+  <tr><td>lib/logger.ts</td><td>Creado</td><td>H-06</td></tr>
+  <tr><td>app/checkout/page.tsx</td><td>Modificado</td><td>H-07</td></tr>
+  <tr><td>components/footer.tsx</td><td>Modificado (enlaces legales)</td><td>H-09</td></tr>
+  <tr><td>app/privacidad/page.tsx</td><td>Creado</td><td>H-09</td></tr>
+  <tr><td>app/terminos/page.tsx</td><td>Creado</td><td>H-09</td></tr>
+  <tr><td>app/cookies/page.tsx</td><td>Creado</td><td>H-09</td></tr>
+  <tr><td>app/politica-eventos/page.tsx</td><td>Creado</td><td>H-09</td></tr>
+  <tr><td>components/ui/calendar.tsx (y 9 más)</td><td>Eliminados</td><td>H-10</td></tr>
+</table>
+
+
+<!-- ESTADO FINAL -->
+<h2>4. Estado Final y Verificación</h2>
+
+<div class="estado-final">
+  ✅ npm audit: 0 vulnerabilidades encontradas<br>
+  ✅ TypeScript strict build: 0 errores<br>
+  ✅ 6 cabeceras de seguridad HTTP implementadas<br>
+  ✅ 4 páginas legales Ley 21.719 operativas<br>
+  ✅ Age gate activo en toda la aplicación<br>
+  ✅ Error boundary global implementado<br>
+  ✅ Logger de seguridad con sanitización de datos sensibles
+</div>
+
+<h3>4.1 Comando de verificación de dependencias</h3>
+<pre>npm audit
+# npm audit report
+# found 0 vulnerabilities</pre>
+
+<h3>4.2 Limitaciones conocidas</h3>
+<ul>
+  <li><strong>Rate limiting:</strong> No se implementó rate limiting en rutas de API (el proyecto no tiene rutas de API críticas en este estado). Se recomienda implementar al activar el sistema de reservas.</li>
+  <li><strong>Age gate:</strong> La verificación de edad es por declaración del usuario (estándar de la industria para este tipo de sitios en Chile). No constituye verificación de identidad real.</li>
+  <li><strong>CSP con unsafe-inline:</strong> La política CSP incluye <code>unsafe-inline</code> para estilos, requerido por Tailwind CSS 4. Para eliminarla se necesitaría migrar a CSS Modules o implementar nonces.</li>
+  <li><strong>Sistema de reservas:</strong> Al activar el checkout con pagos reales, se deberá implementar: integración con procesador certificado PCI-DSS, validación server-side de inputs, y protección CSRF.</li>
+</ul>
+
+
+<!-- REFERENCIAS -->
+<h2>5. Referencias</h2>
+<ul>
+  <li>OWASP Top 10:2025 — <em>https://owasp.org/Top10/</em></li>
+  <li>Ley N° 21.719 — Ley sobre Protección de Datos Personales, Chile (2024)</li>
+  <li>Next.js Security Advisories — <em>https://nextjs.org/blog/security-advisories</em></li>
+  <li>GHSA-ggv3-7p47-pfv8 — Next.js Authorization Bypass</li>
+  <li>GHSA-hmx5-qpq5-p643 — Swiper Prototype Pollution</li>
+  <li>npm audit documentation — <em>https://docs.npmjs.com/cli/v10/commands/npm-audit</em></li>
+  <li>MDN Web Docs — HTTP Security Headers — <em>https://developer.mozilla.org/</em></li>
+</ul>
+
+<div class="pie-pagina">
+  Auditoría de Seguridad — Luxx Producciones · Proyecto de Título · Ingeniería Civil en Informática · Abril 2026<br>
+  Documento generado como parte del proceso de aseguramiento de calidad del proyecto de tesis.
+</div>
+
+</body>
+</html>

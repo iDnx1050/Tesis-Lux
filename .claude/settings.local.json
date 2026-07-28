@@ -17,7 +17,14 @@
       "Bash(sed -i 's/GoldParticles count={14} className=\"z-0\" opacityClassName=\"opacity-60\"/GoldParticles count={28} className=\"z-0\" opacityClassName=\"opacity-65\"/' \"c:/Users/danie/Downloads/b_48dSE9lvZOp-1773773931389/app/contacto/page.tsx\")",
       "Bash(npx --yes sharp-cli --version)",
       "Bash(awk '{total += $1} END {print \"WebP total: \" total \"K\"}')",
-      "Bash(awk '{print $5, $9}')"
+      "Bash(awk '{print $5, $9}')",
+      "Bash(node -e \"console.log\\(require\\('next/package.json'\\).version\\)\")",
+      "Bash(echo \"=== EXIT: $? ===\")",
+      "Bash(npm view *)",
+      "Bash(PORT=3100 npm start)",
+      "Bash(echo \"server starting \\(pid $!\\)...\")",
+      "PowerShell(Get-Process *)",
+      "Bash(git diff *)"
     ]
   }
 }

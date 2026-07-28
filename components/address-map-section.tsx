@@ -61,11 +61,13 @@ export function AddressMapSection() {
       try {
         const communeParam = commune ? `, ${commune}` : ''
         const query = `${address}${communeParam}, Chile`
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=cl&addressdetails=1`
-        const res = await fetch(url, {
-          headers: { 'Accept-Language': 'es' },
+        // Geocoding vía proxy propio (/api/geocode): la dirección y la IP del
+        // usuario no se envían directamente a un tercero (Nominatim).
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+          headers: { Accept: 'application/json' },
         })
-        const data: Suggestion[] = await res.json()
+        const json = await res.json()
+        const data: Suggestion[] = Array.isArray(json?.data) ? json.data : []
         setSuggestions(data)
         setShowSuggestions(data.length > 0)
       } catch {

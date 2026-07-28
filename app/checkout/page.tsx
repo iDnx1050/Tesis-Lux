@@ -66,25 +66,58 @@ function CheckoutContent() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
-  /* ── Cupón de descuento ── */
+  /* ── Cupón de descuento (validado en el servidor) ── */
   const [couponInput, setCouponInput] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
+  const [couponRate, setCouponRate] = useState(0)
+  const [serverDiscount, setServerDiscount] = useState(0)
   const [couponError, setCouponError] = useState(false)
-  const VALID_COUPON = 'LUXX10'
-  const DISCOUNT_RATE = 0.1
+  const [couponLoading, setCouponLoading] = useState(false)
 
-  const applyCoupon = () => {
+  // El código y la tasa del cupón viven solo en el servidor (lib/coupons.ts).
+  // El cliente los envía a /api/checkout/quote y muestra el descuento calculado ahí.
+  const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase()
-    if (code === VALID_COUPON) {
-      setAppliedCoupon(code)
-      setCouponError(false)
-    } else {
+    if (!code) return
+    setCouponLoading(true)
+    try {
+      const res = await fetch('/api/checkout/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: vedeto?.slug,
+          tierId: tier?.id,
+          regionId,
+          communeName,
+          extras: extraSlugs,
+          coupon: code,
+        }),
+      })
+      const data = (await res.json())?.data
+      if (data?.coupon) {
+        setAppliedCoupon(data.coupon.code)
+        setCouponRate(data.coupon.rate)
+        setServerDiscount(data.discount)
+        setCouponError(false)
+      } else {
+        setAppliedCoupon(null)
+        setCouponRate(0)
+        setServerDiscount(0)
+        setCouponError(true)
+      }
+    } catch {
       setAppliedCoupon(null)
+      setCouponRate(0)
+      setServerDiscount(0)
       setCouponError(true)
+    } finally {
+      setCouponLoading(false)
     }
   }
   const removeCoupon = () => {
     setAppliedCoupon(null)
+    setCouponRate(0)
+    setServerDiscount(0)
     setCouponInput('')
     setCouponError(false)
   }
@@ -111,7 +144,8 @@ function CheckoutContent() {
   )
   const extrasTotal = extraArtists.length * EXTRA_PER_ARTIST
   const subtotal = (pricing?.effective ?? 0) + extrasTotal
-  const discount = appliedCoupon ? Math.round(subtotal * DISCOUNT_RATE) : 0
+  // El descuento proviene del servidor (/api/checkout/quote), no se calcula aquí.
+  const discount = appliedCoupon ? serverDiscount : 0
   const grandTotal = subtotal - discount
 
   /* ── Sin reserva válida ── */
@@ -346,7 +380,7 @@ function CheckoutContent() {
                     <div className="flex items-center justify-between gap-3">
                       <span className="flex items-center gap-1.5 font-sans text-xs text-[#25D366]">
                         <Check className="h-3 w-3" />
-                        Descuento {appliedCoupon} (10%)
+                        Descuento {appliedCoupon} ({Math.round(couponRate * 100)}%)
                       </span>
                       <span className="font-sans text-xs font-medium text-[#25D366]">
                         −{clp(discount)}
@@ -393,10 +427,10 @@ function CheckoutContent() {
                         </div>
                         <button
                           onClick={applyCoupon}
-                          disabled={!couponInput.trim()}
+                          disabled={!couponInput.trim() || couponLoading}
                           className="flex-shrink-0 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 font-sans text-xs font-bold uppercase tracking-wider text-[#D4AF37] transition-all hover:bg-[#D4AF37]/20 disabled:cursor-not-allowed disabled:opacity-30"
                         >
-                          Aplicar
+                          {couponLoading ? '…' : 'Aplicar'}
                         </button>
                       </div>
                       {couponError && (

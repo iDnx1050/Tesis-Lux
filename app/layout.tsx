@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, Inter, Nunito_Sans } from 'next/font/google'
+import { cookies } from 'next/headers'
 import { AgeGate } from '@/components/age-gate'
 import { AnnouncementBar } from '@/components/announcement-bar'
+import { verifyAgeToken } from '@/lib/age-gate'
 import './globals.css'
 
 /**
@@ -53,18 +55,23 @@ export const viewport: Viewport = {
  * RootLayout define la estructura general compartida por todas las rutas.
  * En este nivel se incorporan tipografias, estilos globales y analitica.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Verificación de edad EN EL SERVIDOR: se comprueba la firma HMAC de la cookie
+  // luxx_av antes de renderizar. Si no es válida, el contenido (children) nunca
+  // se envía al navegador — solo la pantalla de verificación. Esto no es
+  // saltable desde las DevTools como lo era el gate puramente client-side.
+  const cookieStore = await cookies()
+  const ageVerified = verifyAgeToken(cookieStore.get('luxx_av')?.value)
+
   return (
     <html lang="es" className="dark">
       <body className={`${playfair.variable} ${inter.variable} ${nunitoSans.variable} font-sans antialiased text-[#F5F5F5]`}>
         <AnnouncementBar />
-        <AgeGate>
-          {children}
-        </AgeGate>
+        {ageVerified ? children : <AgeGate />}
       </body>
     </html>
   )

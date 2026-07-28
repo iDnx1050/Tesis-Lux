@@ -12,9 +12,10 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
 
-  // CSP y headers de seguridad se gestionan en middleware.ts con nonce dinámico.
-  // Los headers de red (X-Frame-Options, HSTS, etc.) se duplican en netlify.toml
-  // para garantizar cobertura en assets estáticos servidos desde el CDN.
+  // El Content-Security-Policy con nonce dinámico se genera en proxy.ts (el
+  // middleware de Next 16). Los headers de red que siguen (X-Frame-Options,
+  // HSTS, etc.) se aplican aquí y se duplican en netlify.toml para garantizar
+  // cobertura también en los assets estáticos servidos desde el CDN.
   async headers() {
     return [
       {

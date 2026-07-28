@@ -1,36 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, LogOut } from 'lucide-react'
 
-// luxx_av_ui es la cookie client-readable para el estado del overlay.
-// luxx_av es la cookie HttpOnly firmada con HMAC que el servidor verifica.
-const UI_COOKIE = 'luxx_av_ui'
-
-export function AgeGate({ children }: { children: React.ReactNode }) {
-  const [verified, setVerified] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const cookies = document.cookie.split(';').map((c) => c.trim())
-    const found = cookies.some((c) => c.startsWith(`${UI_COOKIE}=`))
-    setVerified(found)
-  }, [])
+// Pantalla de verificación de edad. Solo se renderiza cuando app/layout.tsx
+// (en el servidor) determinó que la cookie firmada luxx_av NO es válida.
+// Al confirmar, el servidor emite la cookie HttpOnly firmada y router.refresh()
+// vuelve a ejecutar el layout, que ahora sí renderiza el contenido.
+export function AgeGate() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
 
   const handleConfirm = async () => {
+    setLoading(true)
     try {
-      // El servidor establece la cookie HttpOnly firmada (luxx_av)
-      // y la cookie de UI (luxx_av_ui) en la misma respuesta
       await fetch('/api/age-verify', { method: 'POST' })
+      router.refresh()
     } catch {
-      // Si el fetch falla, continuar de todas formas (no bloquear al usuario)
+      // Si el fetch falla, reintentar habilitando de nuevo el botón
+      setLoading(false)
     }
-    setVerified(true)
   }
-
-  // Evitar flash de contenido durante hidratación
-  if (verified === null) return null
-  if (verified) return <>{children}</>
 
   return (
     <AnimatePresence>
@@ -80,9 +72,10 @@ export function AgeGate({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col gap-3">
             <button
               onClick={handleConfirm}
-              className="w-full py-4 rounded-xl bg-[linear-gradient(135deg,#F1CB57_0%,#D4AF37_100%)] text-[#0e0a18] text-sm font-extrabold uppercase tracking-[0.25em] hover:brightness-110 transition duration-300"
+              disabled={loading}
+              className="w-full py-4 rounded-xl bg-[linear-gradient(135deg,#F1CB57_0%,#D4AF37_100%)] text-[#0e0a18] text-sm font-extrabold uppercase tracking-[0.25em] hover:brightness-110 transition duration-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Soy mayor de 18 años — Ingresar
+              {loading ? 'Ingresando…' : 'Soy mayor de 18 años — Ingresar'}
             </button>
             <a
               href="https://www.google.com"

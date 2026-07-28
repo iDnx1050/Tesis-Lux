@@ -1,0 +1,157 @@
+================================================================================
+REGISTRO DE CORRECCIONES DE SEGURIDAD — LUXX PRODUCCIONES  [v3]
+================================================================================
+Basado en: auditoria-seguridad-v3.txt (2026-07-23)
+Fecha de remediación: 2026-07-23
+Ejecutor: Claude Fable 5 (Anthropic) via Claude Code
+Validación: `next build` OK · `npm audit --omit=dev` = 0 · prueba de humo runtime OK
+================================================================================
+
+Resumen: se corrigieron los 2 hallazgos ALTOS, los 4 MEDIOS y los 4 BAJOS. Los
+dos ítems que dependen intrínsecamente de infraestructura de Fase 2 (rate limiting
+multi-instancia con Redis y pago autoritativo completo con Transbank) se mejoraron
+hasta donde permite la Fase 1 y quedan documentados.
+
+
+================================================================================
+ALTA
+================================================================================
+
+[A02] CSP eliminado (regresión) — CORREGIDO
+  Archivos: proxy.ts (reescrito), next.config.mjs:15 (comentario corregido)
+  Qué se hizo:
+    - proxy.ts ahora genera un Content-Security-Policy por request con un nonce
+      aleatorio (Web Crypto) y lo propaga a los <script> de Next.js (se fija el
+      header CSP también en los headers del request, que es como Next inyecta el
+      nonce). 'unsafe-eval' queda restringido a desarrollo.
+    - Se corrigió el comentario de next.config.mjs que mentía diciendo que el CSP
+      estaba en un middleware.ts inexistente.
+  Verificación runtime:
+    content-security-policy: default-src 'self'; script-src 'self' 'nonce-...';
+    style-src 'self' 'unsafe-inline'; img-src ...; connect-src 'self';
+    object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+    → 20 scripts/preloads con nonce, 0 scripts sin nonce (no se bloquea la app).
+  Nota: usar nonce vuelve dinámicas las páginas (compromiso aceptado).
+
+[A06] CVEs en dependencias (sharp, postcss) — CORREGIDO
+  Archivo: package.json (overrides + bump de postcss)
+  Qué se hizo:
+    - "overrides": { "sharp": "^0.35.3", "postcss": "$postcss" }
+    - devDependencies.postcss subido a "^8.5.22" (el override lo referencia con
+      $postcss porque postcss es también dependencia directa).
+    - NO se usó `npm audit fix --force` (proponía downgrade destructivo a next@9).
+  Verificación:
+    Antes: 3 vulnerabilidades ALTAS (sharp <0.35.0, postcss <=8.5.11)
+    Después: `npm audit --omit=dev` → found 0 vulnerabilities
+
+
+================================================================================
+MEDIA
+================================================================================
+
+[A07] Age gate: el token HMAC nunca se verificaba — CORREGIDO
+  Archivos: lib/age-gate.ts (nuevo), app/layout.tsx, components/age-gate.tsx,
+            app/api/age-verify/route.ts
+  Qué se hizo:
+    - Nueva lib/age-gate.ts con signAgeToken() y verifyAgeToken() compartidas.
+    - app/layout.tsx es ahora un Server Component async que lee la cookie firmada
+      luxx_av y la VERIFICA en el servidor. Si no es válida, los children NUNCA se
+      renderizan — solo se envía la pantalla de verificación.
+    - components/age-gate.tsx pasó a ser solo la pantalla; al confirmar hace POST
+      y router.refresh() para que el layout re-renderice ya verificado.
+    - Se eliminó la cookie de UI luxx_av_ui (ya no se necesita; el gate es server).
+  Verificación runtime (sin cookie de edad):
+    HTML de "/" contiene "Verificación de edad" y NO contiene el contenido del
+    body (vedeto "Venom" = 0, botón WhatsApp = 0). Ya NO es saltable por DevTools.
+
+[A02] Secreto por defecto hardcodeado + trampa del ?? — CORREGIDO
+  Archivo: lib/age-gate.ts (getSecret)
+  Qué se hizo:
+    - En producción, si AGE_GATE_SECRET falta o mide < 32 bytes, se LANZA (falla
+      ruidosa). En desarrollo se usa un secreto marcado con console.warn.
+    - Se eliminó el default 'dev-secret-change-in-production' del flujo de prod.
+    - verifyAgeToken() falla cerrado (devuelve false) ante error de configuración.
+
+[A04] Rate limiter inefectivo/evadible — MEJORADO
+  Archivos: lib/get-client-ip.ts (nuevo), app/api/bookings/route.ts, lib/rate-limiter.ts
+  Qué se hizo:
+    - getClientIp() toma la IP de x-nf-client-connection-ip (Netlify) o, en su
+      defecto, del ÚLTIMO valor de X-Forwarded-For (el del proxy de confianza), no
+      del primero (que el cliente falsifica). Esto cierra la evasión por header.
+    - Se añadió guarda de content-length (10 KB) antes de parsear el cuerpo.
+  Pendiente Fase 2 (documentado): almacén compartido (Upstash/Vercel KV) para que
+    el límite funcione entre instancias serverless. El Map en memoria es dev-only.
+
+[A09 / Ley 21.719] IP (dato personal) registrada en claro — CORREGIDO
+  Archivos: lib/get-client-ip.ts (hashIp), lib/logger.ts, app/api/bookings/route.ts
+  Qué se hizo:
+    - La IP ya no se registra en claro: se loguea hashIp(ip) (SHA-256 con sal,
+      truncado). Misma IP → mismo hash (permite correlación sin guardar el dato).
+    - SENSITIVE_KEYS ampliado con ip, email, phone, address, etc., y la coincidencia
+      pasó a ser insensible a mayúsculas y por subcadena (email/token/secret/...).
+    - Nueva variable IP_HASH_SALT documentada en .env.example.
+
+[A04] Precio/cupón del checkout en el cliente — MEJORADO
+  Archivos: lib/coupons.ts (nuevo), app/api/checkout/quote/route.ts (nuevo),
+            app/checkout/page.tsx
+  Qué se hizo:
+    - El código de cupón y su tasa (LUXX10 / 10%) salieron del bundle del cliente
+      y viven solo en el servidor (lib/coupons.ts).
+    - Nueva ruta POST /api/checkout/quote calcula subtotal, descuento y total de
+      forma autoritativa en el servidor (valida además que el tier pertenece al
+      vedeto → cierra IDOR de precios), con guarda de tamaño de cuerpo.
+    - El checkout valida el cupón y obtiene el descuento vía esa ruta; ya no puede
+      forzarse desde DevTools.
+  Pendiente Fase 2 (documentado): enviar este `total` del servidor a Transbank al
+    integrar el pago real (nunca un monto calculado en el navegador).
+
+
+================================================================================
+BAJA
+================================================================================
+
+[A02] /api/health divulgaba entorno/versión — CORREGIDO
+  Archivo: app/api/health/route.ts
+  Ahora responde solo { status, timestamp }. Verificado en runtime.
+
+[A02/cripto] Comparación de token con === — CORREGIDO
+  Archivo: lib/age-gate.ts
+  verifyAgeToken() usa crypto.timingSafeEqual con verificación de longitud.
+
+[A08 / Privacidad] Dirección enviada directo a Nominatim/Google — MEJORADO
+  Archivos: app/api/geocode/route.ts (nuevo), components/address-map-section.tsx
+  Qué se hizo:
+    - Nuevo proxy server-side /api/geocode: el servidor consulta a Nominatim con
+      User-Agent identificado (cumple su política) y cachea 24h; la dirección y la
+      IP del usuario ya no viajan directo al tercero.
+    - El CSP quedó con connect-src 'self' (ya no requiere abrir Nominatim).
+    - El componente ahora llama a /api/geocode con rate limiting (30/min por IP).
+  Verificación runtime: /api/geocode?q=abc → HTTP 422 (validación de longitud).
+
+[A03] Cuerpo de la petición sin límite previo — CORREGIDO
+  Archivos: app/api/bookings/route.ts, app/api/checkout/quote/route.ts
+  Guarda de content-length (10 KB) que responde 413 antes de leer/parsear.
+
+
+================================================================================
+ARCHIVOS TOCADOS
+================================================================================
+Nuevos:
+  lib/age-gate.ts, lib/get-client-ip.ts, lib/coupons.ts,
+  app/api/geocode/route.ts, app/api/checkout/quote/route.ts
+Modificados:
+  proxy.ts, next.config.mjs, package.json, .env.example,
+  app/layout.tsx, components/age-gate.tsx, components/address-map-section.tsx,
+  app/api/age-verify/route.ts, app/api/bookings/route.ts, app/api/health/route.ts,
+  lib/logger.ts, app/checkout/page.tsx
+
+================================================================================
+QUEDA PARA FASE 2 (no corregible sin backend/infra real)
+================================================================================
+  - Rate limiting con almacén compartido (Upstash Redis / Vercel KV)
+  - Pago con Transbank enviando el total autoritativo del servidor
+  - Autenticación (NextAuth), flujo ARCO+P, cifrado en reposo de reservas,
+    runbook de notificación de brechas (Ley 21.719 Art. 40)
+================================================================================
+FIN DEL REGISTRO DE CORRECCIONES
+================================================================================

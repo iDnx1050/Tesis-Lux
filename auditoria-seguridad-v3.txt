@@ -1,0 +1,771 @@
+================================================================================
+INFORME DE AUDITORÍA DE CIBERSEGURIDAD — LUXX PRODUCCIONES  [v3]
+================================================================================
+Versión auditada: 0.1.0 · Next.js 16.2.11 · React 19.2.4 · Fecha: 2026-07-23
+Marcos aplicados: OWASP Top 10:2025 + Ley N° 21.719 (Chile)
+Auditor: Claude Fable 5 (Anthropic) via Claude Code
+Alcance: Avance 3 — se incorporó una capa de API backend (app/api/*) y módulos
+         de soporte de seguridad (lib/validations, lib/rate-limiter, lib/logger,
+         lib/api-response). Esta es la nueva superficie de ataque revisada.
+================================================================================
+
+
+DELTA DESDE AUDITORÍA v2 (2026-07-08)
+--------------------------------------
+El avance 3 introdujo infraestructura de seguridad real: rutas de API con
+validación de entrada, rate limiting, logging estructurado con sanitización y
+un age gate basado en cookie firmada con HMAC. Es una mejora arquitectónica
+clara respecto de v2.
+
+Sin embargo, varias de estas implementaciones están INCOMPLETAS o mal cableadas,
+lo que produce una falsa sensación de seguridad (controles que existen en el
+código pero no se ejecutan). Además se detectó UNA REGRESIÓN: el Content-Security-
+Policy que existía en v2 fue eliminado y su reemplazo prometido nunca se implementó.
+
+
+================================================================================
+RESUMEN EJECUTIVO
+================================================================================
+
+HALLAZGOS RESUELTOS DESDE v2            (5 ítems cerrados)
+  ✅ IDOR en checkout → /api/bookings valida que el tier pertenece al vedeto
+     (vedeto.pricing.find(p => p.id === tierId)) antes de aceptar la reserva
+  ✅ netlify.toml → ahora declara la sección [[headers]] de seguridad
+  ✅ extras=NaN → validateBooking() usa Number.isInteger() + rango 0-10
+  ✅ Logging estructurado → lib/logger.ts implementado con sanitización de claves
+  ✅ Validación de entrada de servidor → lib/validations.ts (contacto + reserva)
+
+HALLAZGOS PERSISTENTES DESDE v2         (1 ítem abierto)
+  ⚠️ [MEDIA] A04 — Precio, cupón y "pago" del checkout siguen 100% en el cliente
+
+HALLAZGOS NUEVOS EN v3                  (10 ítems nuevos)
+  ❌ [ALTA]  A02 — CSP eliminado por completo (REGRESIÓN): no hay ningún
+             Content-Security-Policy en producción
+  ❌ [ALTA]  A06 — 3 CVEs de severidad alta en dependencias (sharp, postcss)
+  ⚠️ [MEDIA] A07 — El token HMAC del age gate NUNCA se verifica en el servidor
+             (verifyToken es código muerto); el gate sigue siendo client-side
+  ⚠️ [MEDIA] A02 — Secreto por defecto hardcodeado 'dev-secret-change-in-production'
+             + trampa del operador ?? con AGE_GATE_SECRET vacío
+  ⚠️ [MEDIA] A04 — Rate limiter inefectivo en serverless (memoria por instancia)
+             y evadible falsificando el header X-Forwarded-For
+  ⚠️ [MEDIA] A09 — La IP del cliente se registra junto a la reserva (dato personal
+             bajo Ley 21.719); sanitize() no redacta ip/email/teléfono/dirección
+  ⚠️ [BAJA]  A02 — /api/health expone NODE_ENV, versión y uptime públicamente
+  ⚠️ [BAJA]  A02 — verifyToken compara con === en vez de timingSafeEqual
+  ⚠️ [BAJA]  A08 — La dirección del usuario se envía a Nominatim/Google Maps
+             (terceros) desde el cliente sin aviso de privacidad
+  ⚠️ [BAJA]  A03 — Tamaño del cuerpo de la petición sin límite previo a validar
+
+Puntuación global:
+  v1: ❌ 2 CRÍTICOS · ❌ 4 ALTOS · ⚠️ 2 MEDIOS · ⚠️ 2 BAJOS
+  v2: ❌ 0 CRÍTICOS · ⚠️ 1 ALTO  · ⚠️ 4 MEDIOS · ⚠️ 2 BAJOS
+  v3: ❌ 0 CRÍTICOS · ❌ 2 ALTOS  · ⚠️ 4 MEDIOS · ⚠️ 4 BAJOS
+
+Nota de lectura: en Fase 1 (sin BD, sin pago real, sin contenido generado por
+usuario renderizado) la EXPLOTABILIDAD práctica de la mayoría de estos hallazgos
+es moderada. El valor de esta auditoría es corregirlos ANTES de la Fase 2, cuando
+el impacto se vuelve directo. Los 2 ALTOS, sin embargo, se recomiendan corregir
+antes de la presentación de la tesis.
+
+
+================================================================================
+HALLAZGOS NUEVOS — SEVERIDAD ALTA
+================================================================================
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: ALTA · REGRESIÓN]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivos: next.config.mjs:15  ·  proxy.ts (completo)  ·  netlify.toml
+          middleware.ts (INEXISTENTE)
+
+Problema:
+  El proyecto NO envía ningún header Content-Security-Policy en producción.
+  En v2 el CSP existía dentro de next.config.mjs (con 'unsafe-inline'). En el
+  avance 3 ese CSP fue ELIMINADO y sustituido por un comentario que promete una
+  implementación que no existe:
+
+  next.config.mjs:15
+    // CSP y headers de seguridad se gestionan en middleware.ts con nonce
+    // dinámico. [...]
+
+  Se verificó que:
+    1. No existe ningún archivo middleware.ts / middleware.js en el repositorio
+       (solo el artefacto de build .next/dev/server/middleware.js, generado a
+       partir de proxy.ts).
+    2. Next.js 16.2.11 reconoce el archivo proxy.ts como convención de middleware
+       (PROXY_FILENAME = 'proxy' en node_modules/next/dist/lib/constants.js), por
+       lo que proxy.ts SÍ se ejecuta... pero solo asigna un x-request-id:
+
+       proxy.ts:4-9
+         export function proxy(request: NextRequest) {
+           const response = NextResponse.next()
+           const requestId = crypto.randomUUID()
+           response.headers.set('x-request-id', requestId)
+           return response
+         }
+
+    3. netlify.toml declara X-Frame-Options, HSTS, etc., pero TAMPOCO incluye
+       Content-Security-Policy.
+
+  Resultado: la política CSP que protegía contra XSS/inyección de recursos
+  desapareció en las tres capas posibles (config, proxy/middleware, CDN).
+
+Impacto:
+  El CSP es la capa de defensa en profundidad principal contra XSS. Su ausencia
+  es especialmente relevante en un sitio de contenido adulto que en Fase 2
+  incorporará formularios de registro, búsquedas y datos de usuario. El
+  comentario en next.config.mjs es peor que no tener nada: induce a un
+  mantenedor a creer que el CSP está cubierto por un middleware que no existe.
+
+Código corregido (implementar el CSP prometido en proxy.ts con nonce):
+  // proxy.ts
+  import { NextResponse } from 'next/server'
+  import type { NextRequest } from 'next/server'
+
+  export function proxy(request: NextRequest) {
+    const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'${process.env.NODE_ENV !== 'production' ? " 'unsafe-eval'" : ''}`,
+      "style-src 'self' 'unsafe-inline'",           // requerido por Tailwind
+      "img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org",
+      "font-src 'self'",
+      "frame-src https://www.openstreetmap.org https://maps.google.com",
+      "connect-src 'self' https://nominatim.openstreetmap.org",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ')
+
+    const response = NextResponse.next()
+    response.headers.set('x-request-id', crypto.randomUUID())
+    response.headers.set('x-nonce', nonce)
+    response.headers.set('Content-Security-Policy', csp)
+    return response
+  }
+
+  export const config = {
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  }
+
+Justificación:
+  El CSP debe reintroducirse ya, aunque sea sin nonce (con 'unsafe-inline' como
+  en v2) mientras se migra. Un CSP imperfecto protege más que ningún CSP. Si el
+  nonce complica los estilos inline de Tailwind/framer-motion en el corto plazo,
+  al menos restaurar el CSP básico y CORREGIR el comentario de next.config.mjs
+  para que refleje la realidad.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: ALTA]
+[CATEGORÍA: A06:2025 — Vulnerable and Outdated Components]
+------------------------------------------------------------------------
+Archivo: package-lock.json (dependencias transitivas de next)
+
+Problema:
+  `npm audit --omit=dev` reporta 3 vulnerabilidades de severidad ALTA en el
+  árbol de dependencias de producción:
+
+  1. sharp <0.35.0  — vulnerabilidades heredadas de libvips
+     CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591
+     (GHSA-f88m-g3jw-g9cj). sharp es usado por next/image para optimizar
+     imágenes EN TIEMPO DE EJECUCIÓN.
+
+  2. postcss <=8.5.11 — XSS vía </style> sin escapar en la salida del
+     stringify (GHSA-qx2v-qp2m-jg93) y lectura arbitraria de archivos /
+     divulgación de información vía sourceMappingURL controlable por atacante
+     en comentarios CSS (GHSA-6g55-p6wh-862q).
+
+Impacto:
+  - sharp: procesa imágenes en el servidor. La superficie práctica está acotada
+    porque las imágenes remotas provienen de un remotePatterns fijo
+    (images.unsplash.com) y de assets locales — un atacante no controla la
+    fuente de imágenes. Aun así es un CVE de severidad alta activo en el runtime.
+  - postcss: es principalmente una dependencia de build; el riesgo se materializa
+    si se procesa CSS de origen no confiable.
+
+IMPORTANTE — no ejecutar la corrección que sugiere npm:
+  `npm audit fix --force` propone instalar next@9.3.3 (¡downgrade destructivo de
+  7 versiones mayores!). NO hacerlo. La corrección correcta es una de estas:
+
+  Opción A (preferida) — actualizar Next.js a un parche que arrastre versiones
+  sanas de sharp/postcss:
+    npm install next@latest
+
+  Opción B — forzar las versiones parcheadas con overrides en package.json:
+    "overrides": {
+      "sharp": ">=0.35.0",
+      "postcss": ">=8.5.12"
+    }
+  Luego: npm install && npm audit --omit=dev  (debe reportar 0 vulnerabilidades)
+
+Justificación:
+  A06 (componentes vulnerables) fue un hallazgo CRÍTICO en v1 (swiper, next) que
+  se cerró correctamente. Mantener `npm audit` limpio es una disciplina de
+  higiene continua, no un evento único. Documentar en la tesis la diferencia
+  entre la corrección correcta (override/upgrade) y la que sugiere la herramienta
+  (downgrade destructivo) es un buen punto de análisis.
+
+
+================================================================================
+HALLAZGOS NUEVOS — SEVERIDAD MEDIA
+================================================================================
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A07:2025 — Identification and Authentication Failures]
+[LEY 21.719 — Verificación de edad / datos sensibles Art. 2]
+------------------------------------------------------------------------
+Archivos: app/api/age-verify/route.ts:12  ·  components/age-gate.tsx:14-18
+
+Problema:
+  El avance 3 implementó un age gate "de servidor" con cookie HttpOnly firmada
+  con HMAC (luxx_av) — buena intención y respuesta directa al hallazgo v2. PERO
+  la función que verifica esa firma NUNCA se ejecuta:
+
+  app/api/age-verify/route.ts:12
+    export function verifyToken(token: string): boolean { ... }
+
+  Se verificó por búsqueda en todo el repositorio: `verifyToken` se DEFINE y se
+  EXPORTA, pero no se importa ni se invoca en ningún otro archivo. No hay
+  middleware ni Server Component que lea la cookie luxx_av y bloquee el contenido.
+
+  El único control que decide si se muestra el sitio vive en el cliente y lee la
+  OTRA cookie, la no-firmada y legible por JS:
+
+  components/age-gate.tsx:14-18
+    useEffect(() => {
+      const cookies = document.cookie.split(';').map((c) => c.trim())
+      const found = cookies.some((c) => c.startsWith(`${UI_COOKIE}=`))  // luxx_av_ui
+      setVerified(found)
+    }, [])
+
+Impacto:
+  El age gate se bypassa exactamente igual que en v2 — no se corrigió, solo se
+  disfrazó. Cualquiera puede ejecutar en la consola del navegador:
+      document.cookie = 'luxx_av_ui=1; path=/'
+  o simplemente llamar `fetch('/api/age-verify', {method:'POST'})` una vez.
+  La cookie firmada luxx_av es teatro de seguridad: se emite pero nadie la valida.
+  El comentario en age-gate.tsx:8 ("la cookie HttpOnly firmada con HMAC que el
+  servidor verifica") es FALSO — el servidor no la verifica.
+
+Código corregido (verificar la firma en proxy.ts y proteger las rutas):
+  // proxy.ts — reutilizar la lógica HMAC, mover verifyToken a lib/age-gate.ts
+  import { verifyAgeToken } from '@/lib/age-gate'
+
+  export function proxy(request: NextRequest) {
+    const isContent = !request.nextUrl.pathname.startsWith('/api/age-verify')
+    const token = request.cookies.get('luxx_av')?.value
+    if (isContent && (!token || !verifyAgeToken(token))) {
+      // renderizar/redirigir a la pantalla de verificación server-side
+      return NextResponse.rewrite(new URL('/verificar-edad', request.url))
+    }
+    return NextResponse.next()
+  }
+
+Justificación:
+  Un control de seguridad que existe pero no se ejecuta es peor que su ausencia:
+  crea la ilusión de estar protegido. Para contenido adulto sujeto a Ley 21.719,
+  la verificación debe ocurrir en el servidor antes de servir el contenido.
+  (Nota honesta para la tesis: ninguna cookie ofrece verificación de edad REAL;
+  requiere verificación de identidad. Pero al menos la barrera debe ser efectiva
+  del lado servidor, no un overlay client-side saltable en 5 segundos.)
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration]
+------------------------------------------------------------------------
+Archivo: app/api/age-verify/route.ts:4
+
+Problema:
+  El secreto de firma HMAC tiene un valor por defecto hardcodeado y público:
+
+  app/api/age-verify/route.ts:4
+    const SECRET = process.env.AGE_GATE_SECRET ?? 'dev-secret-change-in-production'
+
+  Dos problemas:
+    1. Si AGE_GATE_SECRET no está definido en producción, se firma con un secreto
+       conocido por cualquiera que lea el código → los tokens son falsificables.
+    2. TRAMPA DEL OPERADOR ??: en .env.example la variable está declarada vacía
+       (AGE_GATE_SECRET=). Si se despliega con ese valor, `process.env.AGE_GATE_SECRET`
+       es la cadena vacía "", que NO es null/undefined, por lo que `??` la conserva.
+       Resultado: se firmaría con clave vacía "" — aún peor que el default.
+
+Impacto:
+  Actualmente atenuado porque el token no se verifica en ningún lado (ver hallazgo
+  anterior), pero es una mina: en cuanto se cablee verifyToken, un secreto vacío o
+  por defecto hace que la firma no proteja nada.
+
+Código corregido:
+  const SECRET = process.env.AGE_GATE_SECRET
+  if (!SECRET || SECRET.length < 32) {
+    throw new Error('AGE_GATE_SECRET faltante o demasiado corto (mín. 32 bytes)')
+  }
+
+Justificación:
+  Un secreto de firma debe fallar de forma RUIDOSA si falta, nunca degradar
+  silenciosamente a un valor conocido. La validación de longitud mínima obliga a
+  usar el `openssl rand -base64 32` que el propio .env.example documenta.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A04:2025 — Insecure Design (rate limiting inefectivo)]
+------------------------------------------------------------------------
+Archivos: lib/rate-limiter.ts:10,42  ·  app/api/bookings/route.ts:13
+
+Problema (dos causas que se combinan):
+
+  1. ALMACÉN EN MEMORIA POR INSTANCIA. El rate limiter usa un Map en memoria del
+     proceso (lib/rate-limiter.ts:10). El propio archivo lo advierte en un
+     comentario. En Netlify (funciones serverless) cada invocación puede correr en
+     una instancia distinta o en un cold start que reinicia el Map, por lo que el
+     límite de "3 reservas por IP por hora" es en la práctica ineficaz. Además el
+     setInterval de limpieza (línea 42) no tiene garantía de ejecución en un
+     entorno serverless efímero.
+
+  2. CLAVE BASADA EN UN HEADER FALSIFICABLE. La IP se toma del primer valor de
+     X-Forwarded-For, que el cliente controla:
+
+     app/api/bookings/route.ts:13
+       const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+
+     Un atacante rota el header en cada petición:
+       X-Forwarded-For: 1.1.1.1  →  clave booking:1.1.1.1
+       X-Forwarded-For: 1.1.1.2  →  clave booking:1.1.1.2  (contador nuevo)
+     y evade el límite por completo.
+
+Impacto:
+  El rate limiting da una falsa sensación de protección. En Fase 2, cuando exista
+  login, este mismo patrón dejaría el endpoint de autenticación sin protección
+  real contra fuerza bruta / credential stuffing.
+
+Código corregido:
+  - Producción multi-instancia: usar un store compartido (Upstash Redis / Vercel KV;
+    .env.example ya documenta UPSTASH_REDIS_REST_URL). El Map en memoria solo sirve
+    para desarrollo local.
+  - Obtener la IP de una fuente confiable de la plataforma. En Netlify:
+      import { getStore } from '@netlify/...'  // o el header que Netlify garantiza
+    Como mínimo, tomar el ÚLTIMO valor de X-Forwarded-For (el que agrega el proxy
+    de confianza), no el primero (el que pone el cliente):
+      const xff = req.headers.get('x-forwarded-for')?.split(',').map(s => s.trim())
+      const ip = xff?.[xff.length - 1] ?? 'unknown'
+
+Justificación:
+  Un rate limiter solo es tan fuerte como su clave y su persistencia. Si la clave
+  la controla el atacante o el contador se reinicia con cada cold start, el control
+  no cumple su función.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: MEDIA]
+[CATEGORÍA: A09:2025 — Security Logging and Monitoring Failures]
+[LEY 21.719 — Art. 2 (datos personales / sensibles), Art. 14 quáter]
+------------------------------------------------------------------------
+Archivos: app/api/bookings/route.ts:64-72  ·  lib/logger.ts:23-41
+
+Problema:
+  El logger sanitiza claves sensibles, lo cual es correcto, pero:
+
+  1. La lista SENSITIVE_KEYS (lib/logger.ts:23-35) NO incluye datos personales
+     que sí maneja la app: `ip`, `email`, `contactEmail`, `phone`, `contactPhone`,
+     `address`. Si alguno de esos campos se pasa a un log en el futuro, se filtra.
+
+  2. Hoy ya se registra la IP del cliente asociada a una reserva de contenido
+     adulto:
+
+     app/api/bookings/route.ts:64-72
+       logSecurityEvent('BOOKING_CREATED', { ip, bookingId, vededoSlug, tierId, date })
+       logRequest('POST', '/api/bookings', 201, ..., { ip, bookingId })
+
+     La IP es dato personal bajo la Ley 21.719. La combinación IP + reserva de un
+     show de contenido adulto puede considerarse dato sensible (Art. 2, vida
+     sexual/orientación inferida). Esos logs van a `console.log`, que en Netlify
+     se retiene en los logs de la función sin los controles de retención/cifrado
+     que la ley exige para datos sensibles.
+
+  3. La sanitización es por coincidencia EXACTA de clave (Set.has) y case-sensitive:
+     no cubre variantes como `userEmail`, `Email`, ni objetos anidados (aunque el
+     tipo LogMetadata hoy solo permite valores primitivos, lo cual lo mitiga).
+
+Impacto:
+  Registro de datos personales/sensibles en claro en un destino de logs sin
+  política de retención — riesgo de incumplimiento de la Ley 21.719 y superficie
+  de fuga si los logs se exponen.
+
+Código corregido:
+  - Ampliar SENSITIVE_KEYS con: 'ip','email','contactEmail','phone','contactPhone',
+    'address','direccion','telefono'.
+  - Para trazabilidad sin exponer la IP completa, hashearla o truncarla:
+      const ipHash = createHash('sha256').update(ip + SALT).digest('hex').slice(0,12)
+      logSecurityEvent('BOOKING_CREATED', { ipHash, bookingId, ... })
+  - Definir política de retención de logs (p. ej. 90 días) y documentarla.
+
+Justificación:
+  El logging de seguridad debe permitir investigar incidentes SIN convertirse él
+  mismo en un repositorio de datos personales. Hashear/truncar la IP conserva la
+  capacidad de correlación (misma IP → mismo hash) sin almacenar el dato personal.
+
+
+------------------------------------------------------------------------
+[PERSISTENTE · SEVERIDAD: MEDIA]
+[CATEGORÍA: A04:2025 — Insecure Design]
+------------------------------------------------------------------------
+Archivos: app/checkout/page.tsx:73-74, 108-115, 449-473
+
+Problema:
+  El cálculo de precio, la validación del cupón y el "pago" del checkout siguen
+  ocurriendo íntegramente en el cliente:
+
+  - Cupón hardcodeado en el bundle del cliente (page.tsx:73-74):
+      const VALID_COUPON = 'LUXX10'
+      const DISCOUNT_RATE = 0.1
+    Cualquiera lo ve en el JS servido y, más importante, la validación es
+    client-side: se puede forzar `appliedCoupon` desde React DevTools.
+
+  - Precio total calculado en el cliente (page.tsx:108-115) vía locationPricing().
+
+  - El botón "Pagar con Transbank" (page.tsx:449-473) solo hace
+    `onClick={() => readyToPay && setSubmitted(true)}` — no hay transacción real.
+
+  Nota positiva: el nuevo /api/bookings SÍ recalcula/valida en servidor (busca el
+  tier real por vedeto). Pero el checkout NO llama a ese endpoint — están
+  desconectados. La reserva "real" del formulario nunca toca el backend.
+
+Impacto en Fase 2:
+  Si al integrar Transbank se envía el monto calculado en el cliente, un atacante
+  manipula el total. La regla de oro: el servidor es la única fuente de verdad del
+  precio, y el cupón/descuento debe validarse en el servidor.
+
+Código corregido para Fase 2:
+  - El checkout debe POSTear a /api/checkout/create-session con {tierId, slug,
+    region, commune, extras, coupon} y el servidor calcula el total desde la BD,
+    valida el cupón contra una tabla, y crea la transacción Transbank con ESE monto.
+  - Eliminar VALID_COUPON/DISCOUNT_RATE del cliente.
+
+Justificación:
+  Persistente desde v1/v2. En Fase 1 sin pago real el riesgo económico es nulo,
+  pero el patrón debe corregirse antes de conectar Transbank.
+
+
+================================================================================
+HALLAZGOS NUEVOS — SEVERIDAD BAJA
+================================================================================
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration (divulgación de información)]
+------------------------------------------------------------------------
+Archivo: app/api/health/route.ts:10-21
+
+Problema:
+  El endpoint /api/health es público y sin caché (dynamic = 'force-dynamic'), y
+  devuelve información del entorno:
+    environment: process.env.NODE_ENV ?? 'development'   (línea 14)
+    version:     process.env.npm_package_version ?? '0.1.0'  (línea 13)
+    uptime:      process.uptime()
+
+Impacto:
+  Divulgación menor: version y environment ayudan a un atacante a perfilar el
+  stack. El uptime puede revelar patrones de despliegue.
+
+Código corregido:
+  - Devolver solo { status: 'ok' } al público.
+  - Exponer version/environment/uptime únicamente si una cabecera/token interno
+    está presente, o restringir /api/health a monitoreo interno.
+
+Justificación:
+  Un health check debe confirmar disponibilidad sin describir el sistema.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A02:2025 — Security Misconfiguration (comparación no constante)]
+------------------------------------------------------------------------
+Archivo: app/api/age-verify/route.ts:16-21
+
+Problema:
+  La verificación del token usa comparación de strings con === :
+    return token === expected
+  No es de tiempo constante; en teoría es susceptible a un ataque de temporización.
+
+Impacto:
+  Muy bajo (y hoy nulo, porque verifyToken ni siquiera se invoca). Un ataque de
+  temporización sobre HMAC vía red es poco práctico, pero es una mala práctica
+  criptográfica que conviene corregir al cablear la verificación.
+
+Código corregido:
+  import { timingSafeEqual } from 'crypto'
+  const a = Buffer.from(token); const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
+
+Justificación:
+  Toda comparación de secretos/MAC debe ser de tiempo constante por principio,
+  aunque el riesgo específico sea bajo.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A08:2025 — Software and Data Integrity / Privacidad de terceros]
+[LEY 21.719 — Transferencia a terceros]
+------------------------------------------------------------------------
+Archivo: components/address-map-section.tsx:59-68, 94-98
+
+Problema:
+  Mientras el usuario escribe su dirección, el componente la envía (con debounce
+  de 450 ms) directamente desde el navegador a Nominatim de OpenStreetMap:
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}...`
+  y luego embebe un iframe de openstreetmap.org o maps.google.com con la dirección.
+
+  La consulta está correctamente URL-encoded (no hay inyección). El punto es de
+  PRIVACIDAD: la dirección del evento —un dato personal— se transmite a servicios
+  de terceros (uno de ellos, Google, fuera de Chile) sin aviso ni base de licitud.
+
+Impacto:
+  Transferencia de datos personales a terceros sin consentimiento informado
+  (relevante bajo Ley 21.719). Además, la política de uso de Nominatim exige
+  identificarse y limitar el volumen; usarla como autocompletado desde muchos
+  clientes puede violar sus términos.
+
+Recomendación:
+  - Añadir un aviso ("la búsqueda de direcciones usa OpenStreetMap") o hacer el
+    geocoding vía un proxy propio en el servidor con rate limiting y User-Agent
+    identificado.
+  - Incluir estas transferencias en la política de privacidad.
+
+Justificación:
+  No es una vulnerabilidad de inyección, sino de cumplimiento y minimización de
+  datos — pertinente para el marco legal de la tesis.
+
+
+------------------------------------------------------------------------
+[NUEVO · SEVERIDAD: BAJA]
+[CATEGORÍA: A03:2025 — Injection / robustez de entrada]
+------------------------------------------------------------------------
+Archivos: app/api/bookings/route.ts:24  ·  lib/validations.ts
+
+Problema:
+  Las rutas de API leen el cuerpo con `await req.json()` sin un límite de tamaño
+  propio antes de validar. La validación de email usa
+    EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  sin acotar la longitud del string de entrada previamente.
+
+Aclaración honesta (para no inflar el hallazgo):
+  Se analizó esta regex por posible ReDoS. Su estructura (grupos separados por
+  anclas literales @ y \.) produce backtracking LINEAL, no catastrófico — NO es
+  un ReDoS explotable. El único costo real de una entrada gigante sería memoria
+  al bufferizar el JSON, y Netlify ya impone un límite de tamaño de cuerpo a nivel
+  de plataforma (~6 MB). Por eso es BAJA, no media.
+
+Recomendación (defensa en profundidad):
+  - Rechazar cuerpos grandes temprano:
+      const len = Number(req.headers.get('content-length') ?? 0)
+      if (len > 10_000) return apiError('Cuerpo demasiado grande', 413)
+  - Acotar la longitud de cada campo antes de aplicar regex (p. ej. email <= 254).
+
+Justificación:
+  Validar tamaño antes de contenido es una buena práctica que evita trabajo
+  innecesario y cierra vectores de agotamiento de recursos de raíz.
+
+
+================================================================================
+CHECKLIST OWASP TOP 10:2025 — ESTADO v3 (2026-07-23)
+================================================================================
+
+A01 — Broken Access Control
+  Estado: ✅ MEJORADO (era ⚠️ Parcial)
+  - ✅ IDOR resuelto en /api/bookings: valida tier ∈ vedeto antes de aceptar
+  - ✅ /api/vedetos devuelve solo campos de listado (no galerías completas)
+  - ⚠️ Age gate sin control de acceso real en servidor (ver A07)
+  - Nota: aún no hay rutas /admin ni sesión; protección de rutas es tema Fase 2
+
+A02 — Security Misconfiguration
+  Estado: ❌ RETROCESO PARCIAL (era ⚠️ Mejorado)
+  - ✅ poweredByHeader: false
+  - ✅ X-Frame-Options, HSTS, X-Content-Type-Options, Referrer-Policy,
+       Permissions-Policy presentes en next.config.mjs Y netlify.toml
+  - ✅ netlify.toml ahora declara [[headers]] (hallazgo v2 cerrado)
+  - ❌ CSP ELIMINADO por completo — regresión [NUEVO-ALTA]
+  - ❌ Secreto por defecto hardcodeado + trampa ?? [NUEVO-MEDIA]
+  - ❌ /api/health divulga entorno/versión [NUEVO-BAJA]
+
+A03 — Injection
+  Estado: ✅ CUBIERTO
+  - ✅ Sin dangerouslySetInnerHTML, eval(), new Function() en toda la base
+  - ✅ Validación de entrada con lib/validations.ts (regex ancladas, tipos)
+  - ✅ Parámetros de Nominatim y wa.me correctamente URL-encoded
+  - ⚠️ Sin límite de tamaño de cuerpo previo a validar [NUEVO-BAJA]
+
+A04 — Insecure Design
+  Estado: ⚠️ PARCIAL
+  - ❌ Precio/cupón/pago 100% en cliente [PERSISTENTE-MEDIA]
+  - ❌ Rate limiter inefectivo en serverless + evadible por XFF [NUEVO-MEDIA]
+  - ✅ /api/bookings valida existencia y pertenencia server-side
+
+A05 — Security Misconfiguration → (fusionado en A02 en esta edición)
+
+A06 — Vulnerable and Outdated Components
+  Estado: ❌ DEFICIENTE (era ✅ Corregido en v2)
+  - ❌ sharp <0.35.0 (4 CVE libvips) — alta [NUEVO-ALTA]
+  - ❌ postcss <=8.5.11 (XSS + file read) — alta [NUEVO-ALTA]
+  - ⚠️ Verificar tras cada actualización de Next con `npm audit --omit=dev`
+
+A07 — Identification and Authentication Failures
+  Estado: ⚠️ PARCIAL
+  - ❌ Token HMAC del age gate nunca verificado; gate sigue client-side [NUEVO-MEDIA]
+  - N/A login/sesión (Fase 2): requisitos siguen vigentes (NextAuth, rate limit real)
+
+A08 — Software and Data Integrity Failures
+  Estado: ✅ CUBIERTO (con nota de privacidad)
+  - ✅ next/font en build time; sin scripts externos sin SRI
+  - ⚠️ Dirección enviada a Nominatim/Google Maps desde el cliente [NUEVO-BAJA]
+
+A09 — Security Logging and Monitoring Failures
+  Estado: ⚠️ MEJORADO PERO CON RIESGO (era ⚠️ Parcial)
+  - ✅ Logger estructurado JSON con niveles y eventos de seguridad tipados
+  - ✅ Sanitización por lista de claves sensibles (parcial)
+  - ❌ IP (dato personal) registrada con la reserva; lista de claves incompleta [NUEVO-MEDIA]
+  - ❌ Sin integración activa con Sentry/Logtail (SENTRY_DSN solo documentado)
+
+A10 — Mishandling of Exceptional Conditions
+  Estado: ✅ CUBIERTO
+  - ✅ app/error.tsx no expone error.message (solo error.digest)
+  - ✅ Rutas de API devuelven códigos correctos (400/404/409/422/429) sin filtrar
+       detalles internos; try/catch en req.json()
+  - ✅ not-found.tsx en vedetos/[slug]
+
+
+================================================================================
+CHECKLIST LEY 21.719 — ESTADO v3 (2026-07-23)
+================================================================================
+
+Art. 14 quáter — Privacidad desde el diseño
+  - ⚠️ Age gate presente pero sin verificación efectiva en servidor [MEDIA]
+  - ✅ Cookies con SameSite=Strict; luxx_av es HttpOnly
+  - ✅ Validación y minimización de datos en /api/vedetos (solo campos de listado)
+
+Art. 2 — Datos personales / sensibles
+  - ❌ IP registrada junto a reserva de contenido adulto en logs sin retención [MEDIA]
+  - ⚠️ Dirección transferida a terceros (Nominatim/Google) sin aviso [BAJA]
+  - Requisito Fase 2: cifrado en reposo de reservas
+
+Art. 12 — Bases de licitud / consentimiento
+  - N/A Fase 1. Requisito Fase 2: checkbox de consentimiento SEPARADO de T&C
+
+Derechos ARCO+P (Art. 18-24)
+  - ❌ No implementado (Fase 2): /perfil/mis-datos, exportación, rectificación,
+       eliminación con borrado en cascada
+
+Política de privacidad (Art. 14 ter)
+  - ✅ Rutas /privacidad, /terminos, /cookies, /politica-eventos implementadas
+  - ⚠️ Debe listar la transferencia a OpenStreetMap/Google Maps
+
+Notificación de brechas (Art. 40)
+  - ❌ Ausente (Fase 2): runbook, alerta, notificación ≤72h a APDP y titulares
+
+
+================================================================================
+MATRIZ DE COBERTURA — COMPARATIVA v1 / v2 / v3
+================================================================================
+
+ID    | Categoría (OWASP 2025)        | v1          | v2          | v3          | Δ
+------|-------------------------------|-------------|-------------|-------------|----
+A01   | Broken Access Control         | ⚠️ Parcial  | ⚠️ Parcial  | ✅ Mejorado | ↑
+A02   | Security Misconfiguration     | ❌ Deficiente| ⚠️ Mejorado | ❌ Retroceso| ↓
+A03   | Injection                     | ✅ Cubierto | ✅ Cubierto | ✅ Cubierto | =
+A04   | Insecure Design               | ❌ Deficiente| ⚠️ Parcial  | ⚠️ Parcial  | =
+A06   | Vulnerable Components          | ❌ Crítico  | ✅ Corregido| ❌ Deficiente| ↓
+A07   | Auth Failures                 | ✅ N/A F1   | ✅ N/A F1   | ⚠️ Parcial  | ↓
+A08   | Data Integrity                | ✅ Cubierto | ✅ Cubierto | ✅ Cubierto | =
+A09   | Logging & Monitoring          | ❌ Ausente  | ⚠️ Parcial  | ⚠️ Riesgo   | ~
+A10   | Exceptional Conditions        | ⚠️ Parcial  | ✅ Corregido| ✅ Cubierto | =
+
+Leyenda: ✅ Cubierto · ⚠️ Parcial · ❌ No cubierto · ↑ Mejora · ↓ Retroceso · = Igual
+
+Lectura del delta: el avance 3 mejoró A01 y consolidó A03/A10, pero introdujo
+retrocesos en A02 (CSP eliminado), A06 (CVEs nuevos) y A07 (age gate aparente
+pero no efectivo). El patrón dominante de esta revisión son CONTROLES INCOMPLETOS:
+código de seguridad presente que no se ejecuta.
+
+
+================================================================================
+ACCIONES PRIORITARIAS — PLAN v3
+================================================================================
+
+INMEDIATO (antes de la presentación de la tesis):
+  1. [ALTA] Restaurar el Content-Security-Policy (mínimo, como v2, o con nonce en
+     proxy.ts) y CORREGIR el comentario engañoso de next.config.mjs:15.
+  2. [ALTA] Resolver los 3 CVE de npm audit vía "overrides" (sharp>=0.35.0,
+     postcss>=8.5.12) o `npm install next@latest`. NO usar `npm audit fix --force`
+     (propone downgrade a next@9).
+  3. [MEDIA] Corregir el secreto del age gate: fallar si AGE_GATE_SECRET falta o
+     mide <32 bytes (eliminar el default hardcodeado y la trampa del ??).
+
+ANTES DE FASE 2 (backend real):
+  4. [MEDIA] Cablear verifyToken: verificar luxx_av en proxy.ts y bloquear el
+     contenido en servidor (mover la lógica a lib/age-gate.ts). Usar timingSafeEqual.
+  5. [MEDIA] Rate limiting real: store compartido (Upstash/Vercel KV) + obtener la
+     IP de fuente confiable de la plataforma (no el primer valor de X-Forwarded-For).
+  6. [MEDIA] Logging conforme a Ley 21.719: hashear/truncar IP, ampliar
+     SENSITIVE_KEYS (ip, email, phone, address...), definir retención, activar Sentry.
+  7. [MEDIA] Checkout: POST a /api/checkout/create-session; precio y cupón
+     calculados/validados en servidor; eliminar VALID_COUPON del cliente; conectar
+     el formulario al backend antes de integrar Transbank.
+  8. [BAJA]  /api/health: exponer solo status al público.
+  9. [BAJA]  Geocoding vía proxy propio o aviso de privacidad para Nominatim/Maps.
+  10.[BAJA]  Límite de content-length y de longitud de campos antes de validar.
+
+REQUISITOS FASE 2 QUE SIGUEN VIGENTES (de v2, no regresión):
+  - NextAuth (httpOnly+secure+sameSite), rotación de sesión, política de contraseña
+  - Flujo ARCO+P en /perfil/mis-datos
+  - Cifrado en reposo de reservas (datos sensibles)
+  - HMAC del webhook de confirmación Transbank
+  - Runbook de notificación de brechas (Art. 40, ≤72h)
+  - Checkbox de consentimiento separado de T&C
+
+
+================================================================================
+HALLAZGOS QUE NO REQUIEREN ACCIÓN (correctamente implementados en v3)
+================================================================================
+
+  ✅ Validación de entrada server-side robusta (lib/validations.ts): isObject(),
+     regex ancladas para email/teléfono/fecha/hora, límites de longitud, rango de
+     extras con Number.isInteger()
+  ✅ /api/bookings valida existencia de vedeto, pertenencia del tier y
+     disponibilidad de fecha antes de aceptar (cierra el IDOR de v2)
+  ✅ /api/vedetos aplica minimización: devuelve solo campos de listado
+  ✅ Manejo de errores en API: try/catch en req.json(), códigos HTTP correctos,
+     mensajes sin detalles internos
+  ✅ Logger estructurado en JSON con eventos de seguridad tipados y sanitización
+     (aunque la lista de claves deba ampliarse)
+  ✅ netlify.toml con [[headers]] de seguridad + cache inmutable para /_next/static
+  ✅ X-Frame-Options: DENY, HSTS, X-Content-Type-Options: nosniff, Referrer-Policy,
+     Permissions-Policy presentes
+  ✅ poweredByHeader: false
+  ✅ Sin dangerouslySetInnerHTML, eval() ni new Function() en toda la base de código
+  ✅ Sin server actions ('use server') expuestas sin control
+  ✅ app/error.tsx no expone error.message (solo error.digest)
+  ✅ Cookie luxx_av es HttpOnly + SameSite=Strict; Secure en producción
+  ✅ .env y .env*.local en .gitignore; .env.example sin valores reales
+  ✅ images.remotePatterns restringido a images.unsplash.com (sin dangerouslyAllowSVG)
+  ✅ next.config.mjs sin ignoreBuildErrors ni ignoreDuringBuilds (limpio desde v2)
+  ✅ proxy.ts reconocido por Next 16 como middleware (convención válida)
+
+
+================================================================================
+FIN DEL INFORME
+================================================================================
+Auditor: Claude Fable 5 (Anthropic) via Claude Code
+Proyecto: Luxx Producciones — Tesis de Grado
+Fecha de esta auditoría: 2026-07-23 (v3 · Avance 3)
+Auditorías previas: 2026-04-22 (v1) · 2026-07-08 (v2)
+Metodología: revisión manual de código (app/, lib/, componentes, configuración)
+             + verificación de convenciones de Next.js en node_modules
+             + npm audit --omit=dev para dependencias de producción
+================================================================================

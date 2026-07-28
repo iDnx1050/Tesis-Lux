@@ -19,7 +19,9 @@ type SecurityEvent =
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'SECURITY'
 type LogMetadata = Record<string, string | number | boolean | undefined>
 
-// Campos que nunca deben aparecer en los registros de log
+// Campos que nunca deben aparecer en los registros de log.
+// Incluye datos personales bajo la Ley 21.719 (IP, email, teléfono, dirección):
+// para trazabilidad usar en su lugar un valor derivado no reversible (p. ej. ipHash).
 const SENSITIVE_KEYS = new Set([
   'password',
   'passwordHash',
@@ -32,11 +34,35 @@ const SENSITIVE_KEYS = new Set([
   'apiKey',
   'rut',
   'bankAccount',
+  // Datos personales (Ley 21.719)
+  'ip',
+  'ipAddress',
+  'email',
+  'contactEmail',
+  'phone',
+  'contactPhone',
+  'telefono',
+  'address',
+  'direccion',
 ])
+
+// Comparación insensible a mayúsculas para que 'Email' o 'userEmail' no escapen
+const SENSITIVE_KEYS_LOWER = new Set(
+  [...SENSITIVE_KEYS].map((k) => k.toLowerCase())
+)
+
+function isSensitive(key: string): boolean {
+  const lower = key.toLowerCase()
+  if (SENSITIVE_KEYS_LOWER.has(lower)) return true
+  // También descarta variantes que contengan un término sensible claro
+  return ['password', 'secret', 'token', 'email', 'apikey'].some((s) =>
+    lower.includes(s)
+  )
+}
 
 function sanitize(metadata: LogMetadata): LogMetadata {
   return Object.fromEntries(
-    Object.entries(metadata).filter(([key]) => !SENSITIVE_KEYS.has(key))
+    Object.entries(metadata).filter(([key]) => !isSensitive(key))
   )
 }
 

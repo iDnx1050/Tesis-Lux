@@ -2,21 +2,34 @@ import { rateLimit } from '@/lib/rate-limiter'
 import { rateLimitedResponse, apiError, created, addRateLimitHeaders } from '@/lib/api-response'
 import { validateBooking } from '@/lib/validations'
 import { vedetos } from '@/lib/mock-data'
+import { getClientIp, hashIp } from '@/lib/get-client-ip'
 import { logSecurityEvent, logRequest, logWarn, logInfo } from '@/lib/logger'
+
+export const runtime = 'nodejs'
 
 // 3 intentos de reserva por IP por hora
 const RATE_LIMIT = 3
 const RATE_WINDOW_MS = 60 * 60 * 1000
+const MAX_BODY_BYTES = 10_000
 
 export async function POST(req: Request) {
   const start = Date.now()
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+  // IP desde fuente confiable de la plataforma; hash para los logs (no se
+  // registra la IP en claro — es dato personal bajo la Ley 21.719).
+  const ip = getClientIp(req)
+  const ipHash = hashIp(ip)
 
   const rl = rateLimit(`booking:${ip}`, RATE_LIMIT, RATE_WINDOW_MS)
   if (!rl.success) {
-    logWarn('Rate limit exceeded on bookings', { ip })
-    logSecurityEvent('RATE_LIMIT_EXCEEDED', { ip, endpoint: '/api/bookings' })
+    logWarn('Rate limit exceeded on bookings', { ipHash })
+    logSecurityEvent('RATE_LIMIT_EXCEEDED', { ipHash, endpoint: '/api/bookings' })
     return rateLimitedResponse(rl)
+  }
+
+  // Rechazar cuerpos grandes antes de leer/parsear (defensa en profundidad)
+  const len = Number(req.headers.get('content-length') ?? 0)
+  if (len > MAX_BODY_BYTES) {
+    return apiError('Cuerpo demasiado grande', 413, 'PAYLOAD_TOO_LARGE')
   }
 
   let body: unknown
@@ -29,7 +42,7 @@ export async function POST(req: Request) {
   const validation = validateBooking(body)
   if (!validation.valid) {
     logSecurityEvent('VALIDATION_FAILED', {
-      ip,
+      ipHash,
       endpoint: '/api/bookings',
       errors: validation.errors.join('; '),
     })
@@ -62,14 +75,14 @@ export async function POST(req: Request) {
   const bookingId = `BK-${Date.now().toString(36).toUpperCase()}`
 
   logSecurityEvent('BOOKING_CREATED', {
-    ip,
+    ipHash,
     bookingId,
     vededoSlug,
     tierId,
     date,
   })
   logInfo('Booking created successfully', { bookingId, vededoSlug, tierId })
-  logRequest('POST', '/api/bookings', 201, Date.now() - start, { ip, bookingId })
+  logRequest('POST', '/api/bookings', 201, Date.now() - start, { ipHash, bookingId })
 
   const response = created({
     bookingId,

@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, Inter, Nunito_Sans } from 'next/font/google'
-import { cookies } from 'next/headers'
 import { AgeGate } from '@/components/age-gate'
 import { AnnouncementBar } from '@/components/announcement-bar'
-import { verifyAgeToken } from '@/lib/age-gate'
+import { SITE_URL } from '@/lib/site'
 import './globals.css'
 
 /**
@@ -30,6 +29,10 @@ const nunitoSans = Nunito_Sans({
 })
 
 export const metadata: Metadata = {
+  // Origen base con el que Next.js resuelve las URLs relativas de Open Graph
+  // y de las canonicas. Debe coincidir con el dominio del sitemap y del
+  // robots.txt; si no, Google descarta las URLs por pertenecer a otro host.
+  metadataBase: new URL(SITE_URL),
   icons: {
     icon: '/icon.svg',
   },
@@ -42,6 +45,7 @@ export const metadata: Metadata = {
     siteName: 'Luxx Producciones',
     locale: 'es_CL',
     type: 'website',
+    url: SITE_URL,
   },
 }
 
@@ -55,23 +59,21 @@ export const viewport: Viewport = {
  * RootLayout define la estructura general compartida por todas las rutas.
  * En este nivel se incorporan tipografias, estilos globales y analitica.
  */
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // Verificación de edad EN EL SERVIDOR: se comprueba la firma HMAC de la cookie
-  // luxx_av antes de renderizar. Si no es válida, el contenido (children) nunca
-  // se envía al navegador — solo la pantalla de verificación. Esto no es
-  // saltable desde las DevTools como lo era el gate puramente client-side.
-  const cookieStore = await cookies()
-  const ageVerified = verifyAgeToken(cookieStore.get('luxx_av')?.value)
-
+  // El contenido se renderiza SIEMPRE en el servidor. El aviso de edad es un
+  // overlay del lado del cliente (<AgeGate />) que se superpone encima: ya no
+  // hay cookie firmada ni verificación en el servidor. Esto permite que Google
+  // indexe las páginas y evita que un fallo de JS deje la pantalla en blanco.
   return (
     <html lang="es" className="dark">
       <body className={`${playfair.variable} ${inter.variable} ${nunitoSans.variable} font-sans antialiased text-[#F5F5F5]`}>
         <AnnouncementBar />
-        {ageVerified ? children : <AgeGate />}
+        {children}
+        <AgeGate />
       </body>
     </html>
   )

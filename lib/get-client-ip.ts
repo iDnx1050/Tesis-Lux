@@ -27,7 +27,6 @@ export function getClientIp(req: Request): string {
  * pequeño); definir IP_HASH_SALT en producción.
  */
 export function hashIp(ip: string): string {
-  const salt =
-    process.env.IP_HASH_SALT ?? process.env.AGE_GATE_SECRET ?? 'luxx-log-salt'
+  const salt = process.env.IP_HASH_SALT ?? 'luxx-log-salt'
   return createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 12)
 }

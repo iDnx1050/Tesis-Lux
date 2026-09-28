@@ -45,8 +45,11 @@ export function proxy(request: NextRequest) {
   return response
 }
 
+// robots.txt y sitemap.xml se excluyen del middleware: son archivos estaticos
+// generados en build y no necesitan el CSP con nonce. Dejarlos pasar por aqui
+// los volveria dinamicos (un nonce distinto por request) sin ningun beneficio.
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

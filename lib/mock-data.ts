@@ -32,7 +32,9 @@ const PRICING = [
   },
 ]
 
-export const vedetos: Vedeto[] = [
+// Catalogo en bruto. El orden de este array NO es el que se muestra en
+// pantalla: eso lo decide DISPLAY_ORDER, mas abajo.
+const CATALOG: Vedeto[] = [
   {
     id: '1',
     name: 'Venom',
@@ -51,26 +53,6 @@ export const vedetos: Vedeto[] = [
     availability: generateAvailability(),
     location: 'Santiago, Chile',
     specialties: ['Militar', 'Constructor'],
-    featured: true,
-  },
-  {
-    id: '2',
-    name: 'Nicolas',
-    slug: 'nicolas',
-    shortDescription: 'Artista de alta demanda con versatilidad escénica y un amplio registro de personajes. Cada show, una propuesta distinta.',
-    fullDescription: 'Nicolás es el artista de mayor versatilidad del elenco Luxx. Su capacidad para transitar entre registros — del capitán al vaquero — con igual convicción lo convierte en la elección ideal cuando se busca variedad dentro de una misma velada. Domina el escenario con naturalidad y construye un vínculo genuino con el público.',
-    image: '/vedetos/Nicolas/Nicolas0.webp',
-    gallery: [
-      '/vedetos/Nicolas/Nicolas0.webp',
-      '/vedetos/Nicolas/Nicolas1.webp',
-      '/vedetos/Nicolas/Nicolas2.webp',
-    ],
-    rating: 4.85,
-    reviewCount: 108,
-    pricing: PRICING,
-    availability: generateAvailability(),
-    location: 'Santiago, Chile',
-    specialties: ['Policia', 'Vaquero', 'Capitan'],
     featured: true,
   },
   {
@@ -285,5 +267,34 @@ function generateAvailability(): AvailabilitySlot[] {
 
   return availability
 }
+
+/**
+ * Orden de aparicion de los artistas, por slug. Aplica tanto a la pestaña de
+ * artistas (/vedetos) como al carrusel destacado de la portada, porque ambos
+ * recorren el array `vedetos` tal cual.
+ *
+ * Para cambiar las posiciones basta con reordenar esta lista: no hay que tocar
+ * las fichas. Un artista que no figure aqui se muestra al final, conservando el
+ * orden en que fue definido en CATALOG.
+ */
+const DISPLAY_ORDER = [
+  'benjamin',
+  'adonis',
+  'lorenzo',
+  'paulo-cassanova',
+  'venom',
+]
+
+function orderIndex(slug: string): number {
+  const position = DISPLAY_ORDER.indexOf(slug)
+  // -1 (no listado) iria primero al ordenar; se manda al final a proposito.
+  return position === -1 ? DISPLAY_ORDER.length : position
+}
+
+// .sort() muta el array, por eso se ordena sobre una copia. Array.prototype.sort
+// es estable, asi que los artistas fuera de DISPLAY_ORDER mantienen su orden.
+export const vedetos: Vedeto[] = [...CATALOG].sort(
+  (a, b) => orderIndex(a.slug) - orderIndex(b.slug),
+)
 
 export const featuredVedetos = vedetos.filter(v => v.featured)

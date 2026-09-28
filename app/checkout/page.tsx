@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -65,6 +65,59 @@ function CheckoutContent() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+
+  /* ── Disponibilidad real (Google Calendar) ── */
+  // Se arranca con la del perfil para que el calendario no aparezca vacío
+  // mientras llega la respuesta, y se reemplaza por la del calendario.
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>(
+    vedeto?.availability ?? [],
+  )
+  const [availabilityLoading, setAvailabilityLoading] = useState(true)
+  // true cuando los horarios vienen del respaldo y no del calendario real.
+  const [availabilityStale, setAvailabilityStale] = useState(false)
+
+  useEffect(() => {
+    if (!slug) {
+      setAvailabilityLoading(false)
+      return
+    }
+
+    // Evita aplicar una respuesta que llegue tarde si el slug ya cambió.
+    let cancelled = false
+    setAvailabilityLoading(true)
+
+    fetch(`/api/availability/${slug}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return
+        if (json?.success && Array.isArray(json.data?.availability)) {
+          setAvailability(json.data.availability)
+          setAvailabilityStale(json.data.source === 'fallback')
+        } else {
+          setAvailabilityStale(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvailabilityStale(true)
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slug])
+
+  // Si el bloque elegido se ocupó mientras la clienta completaba el formulario,
+  // se deselecciona: así no puede enviar una reserva que el servidor rechazará.
+  useEffect(() => {
+    if (!selectedDate || !selectedTime) return
+    const slot = availability.find((a) => a.date === selectedDate)
+    if (slot?.bookedTimes?.includes(selectedTime)) {
+      setSelectedTime(null)
+    }
+  }, [availability, selectedDate, selectedTime])
 
   /* ── Cupón de descuento (validado en el servidor) ── */
   const [couponInput, setCouponInput] = useState('')
@@ -287,7 +340,9 @@ function CheckoutContent() {
               />
               <div className="p-5">
                 <AvailabilityCalendar
-                  availability={vedeto.availability}
+                  availability={availability}
+                  loading={availabilityLoading}
+                  stale={availabilityStale}
                   selectedDate={selectedDate}
                   selectedTime={selectedTime}
                   onSelectDate={(d) => { setSelectedDate(d); setSelectedTime(null) }}
@@ -695,9 +750,11 @@ function formatDateLong(dateStr: string) {
 }
 
 function AvailabilityCalendar({
-  availability, selectedDate, selectedTime, onSelectDate, onSelectTime,
+  availability, loading, stale, selectedDate, selectedTime, onSelectDate, onSelectTime,
 }: {
   availability: AvailabilitySlot[]
+  loading: boolean
+  stale: boolean
   selectedDate: string | null
   selectedTime: string | null
   onSelectDate: (d: string) => void
@@ -745,7 +802,10 @@ function AvailabilityCalendar({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
 
-  const times = selectedDate ? (availMap.get(selectedDate)?.times ?? []) : []
+  const selectedSlot = selectedDate ? availMap.get(selectedDate) : undefined
+  const times = selectedSlot?.times ?? []
+  // Horarios ya tomados: se muestran igual, en rojo y deshabilitados.
+  const bookedTimes = selectedSlot?.bookedTimes ?? []
 
   return (
     <div>
@@ -792,22 +852,40 @@ function AvailabilityCalendar({
           const available = Boolean(slot?.available) && !isPast
           const isSelected = key === selectedDate
 
+          const bookedCount = slot?.bookedTimes?.length ?? 0
+          const timesCount = slot?.times?.length ?? 0
+          // Se distingue "agotado" (rojo, había horarios y se tomaron todos) de
+          // "no se opera" (gris, domingo o fecha pasada).
+          const fullyBooked = !isPast && timesCount > 0 && bookedCount >= timesCount
+          const partiallyBooked = available && bookedCount > 0
+
           return (
             <button
               key={key}
               disabled={!available}
               onClick={() => available && onSelectDate(key)}
+              title={fullyBooked ? 'Sin horarios disponibles' : undefined}
               className={`relative aspect-square rounded-lg font-sans text-sm transition-all duration-200 ${
                 isSelected
                   ? 'bg-[#D4AF37] font-bold text-[#0e0a18] shadow-[0_0_16px_rgba(212,175,55,0.5)]'
-                  : available
-                    ? 'border border-[#D4AF37]/20 bg-[#D4AF37]/[0.06] text-white hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/15'
-                    : 'text-white/20 cursor-not-allowed'
+                  : fullyBooked
+                    ? 'border border-[#E5484D]/35 bg-[#E5484D]/10 text-[#E5484D]/70 cursor-not-allowed'
+                    : available
+                      ? 'border border-[#D4AF37]/20 bg-[#D4AF37]/[0.06] text-white hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/15'
+                      : 'text-white/20 cursor-not-allowed'
               }`}
             >
               {day}
-              {available && !isSelected && (
-                <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#D4AF37]/70" />
+              {!isSelected && (available || fullyBooked) && (
+                <span
+                  className={`absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                    fullyBooked
+                      ? 'bg-[#E5484D]/80'
+                      : partiallyBooked
+                        ? 'bg-[#E8A33D]/80'
+                        : 'bg-[#D4AF37]/70'
+                  }`}
+                />
               )}
             </button>
           )
@@ -815,16 +893,37 @@ function AvailabilityCalendar({
       </div>
 
       {/* Leyenda */}
-      <div className="mt-4 flex items-center gap-4">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-[#D4AF37]/70" />
           <span className="font-sans text-[10px] text-white/40">Disponible</span>
         </div>
         <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[#E8A33D]/80" />
+          <span className="font-sans text-[10px] text-white/40">Quedan pocos bloques</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[#E5484D]/80" />
+          <span className="font-sans text-[10px] text-white/40">Agotado</span>
+        </div>
+        <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-white/15" />
-          <span className="font-sans text-[10px] text-white/40">No disponible</span>
+          <span className="font-sans text-[10px] text-white/40">No se opera</span>
         </div>
       </div>
+
+      {/* Estado de la sincronización con el calendario */}
+      {loading ? (
+        <p className="mt-3 flex items-center gap-2 font-sans text-[10px] text-white/35">
+          <span className="h-3 w-3 animate-spin rounded-full border border-[#D4AF37]/40 border-t-[#D4AF37]" />
+          Consultando la agenda en tiempo real…
+        </p>
+      ) : stale ? (
+        <p className="mt-3 font-sans text-[10px] text-[#E8A33D]/80">
+          No pudimos consultar la agenda en vivo. Confirmaremos la disponibilidad
+          al procesar tu reserva.
+        </p>
+      ) : null}
 
       {/* Horarios */}
       <AnimatePresence>
@@ -842,20 +941,36 @@ function AvailabilityCalendar({
               </p>
               {times.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {times.map(t => (
-                    <button
-                      key={t}
-                      onClick={() => onSelectTime(t)}
-                      className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 font-sans text-sm transition-all duration-200 ${
-                        selectedTime === t
-                          ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]'
-                          : 'border-white/12 bg-white/[0.03] text-white/70 hover:border-white/30'
-                      }`}
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      {t}
-                    </button>
-                  ))}
+                  {times.map(t => {
+                    // Los bloques tomados no se ocultan: se muestran en rojo y
+                    // sin poder seleccionarse, para que la clienta entienda por
+                    // qué no puede elegir ese horario.
+                    const isBooked = bookedTimes.includes(t)
+                    return (
+                      <button
+                        key={t}
+                        disabled={isBooked}
+                        onClick={() => !isBooked && onSelectTime(t)}
+                        aria-label={isBooked ? `${t} — ya reservado` : `${t} — disponible`}
+                        title={isBooked ? 'Este bloque ya está reservado' : undefined}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3.5 py-2 font-sans text-sm transition-all duration-200 ${
+                          isBooked
+                            ? 'cursor-not-allowed border-[#E5484D]/35 bg-[#E5484D]/10 text-[#E5484D]/70 line-through'
+                            : selectedTime === t
+                              ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#D4AF37]'
+                              : 'border-white/12 bg-white/[0.03] text-white/70 hover:border-white/30'
+                        }`}
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                        {t}
+                        {isBooked && (
+                          <span className="ml-0.5 font-sans text-[10px] uppercase tracking-wide">
+                            Ocupado
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="font-sans text-xs text-white/35">No hay horarios disponibles este día.</p>

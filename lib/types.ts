@@ -39,5 +39,11 @@ export interface PricingTier {
 export interface AvailabilitySlot {
   date: string
   available: boolean
+  /** Todos los horarios ofrecidos ese día, libres y ocupados. */
   times?: string[]
+  /**
+   * Subconjunto de `times` ya tomado en Google Calendar. Se envía al cliente
+   * para poder pintar esos bloques en rojo en vez de esconderlos.
+   */
+  bookedTimes?: string[]
 }

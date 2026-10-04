@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Playfair_Display, Inter, Nunito_Sans } from 'next/font/google'
+import { connection } from 'next/server'
 import { AgeGate } from '@/components/age-gate'
 import { AnnouncementBar } from '@/components/announcement-bar'
 import { SITE_URL } from '@/lib/site'
@@ -59,11 +60,18 @@ export const viewport: Viewport = {
  * RootLayout define la estructura general compartida por todas las rutas.
  * En este nivel se incorporan tipografias, estilos globales y analitica.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // OBLIGATORIO: proxy.ts emite un CSP con nonce por request. Una página
+  // prerenderizada en el build no lleva ese nonce en sus <script>, así que el
+  // navegador los bloquea todos: React no hidrata y todo lo que anima
+  // framer-motion se queda en opacity 0 (página "vacía"). connection() obliga
+  // a renderizar cada request para que Next.js inyecte el nonce.
+  await connection()
+
   // El contenido se renderiza SIEMPRE en el servidor. El aviso de edad es un
   // overlay del lado del cliente (<AgeGate />) que se superpone encima: ya no
   // hay cookie firmada ni verificación en el servidor. Esto permite que Google

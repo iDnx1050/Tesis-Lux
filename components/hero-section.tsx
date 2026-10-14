@@ -57,7 +57,7 @@ export function HeroSection() {
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
           filter: 'drop-shadow(0 0 10px rgba(212,175,55,0.7))',
-          animation: prefersReducedMotion ? 'none' : 'vip-shine 4s linear infinite, gold-text-glow 3s ease-in-out infinite',
+          animation: prefersReducedMotion ? 'none' : 'vip-shine 5s linear infinite, gold-text-glow 1.8s ease-in-out infinite',
         }}
       >
         {char === ' ' ? '\u00A0' : char}

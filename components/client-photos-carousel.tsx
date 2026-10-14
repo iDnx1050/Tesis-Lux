@@ -45,7 +45,7 @@ export function ClientPhotosCarousel() {
           <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
         </div>
         <h2
-          className="gold-text-glow font-serif text-[clamp(1.4rem,4vw,2.2rem)] font-bold leading-tight"
+          className="gold-text-glow font-serif text-[clamp(2rem,5vw,3.2rem)] font-bold leading-tight"
           style={{
             background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 30%, #FFD700 55%, #B8962E 75%, #e8c84a 100%)',
             backgroundSize: '200% auto',

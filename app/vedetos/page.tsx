@@ -31,15 +31,13 @@ export default function VedetosPage() {
               <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
             </div>
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold"
+              className="title-artistas-glow text-4xl md:text-5xl lg:text-6xl font-serif font-bold"
               style={{
                 background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 30%, #FFD700 55%, #B8962E 75%, #e8c84a 100%)',
                 backgroundSize: '200% auto',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                filter: 'drop-shadow(0 0 14px rgba(212,175,55,0.35))',
-                animation: 'vip-shine 5s linear infinite',
               }}
             >
               Artistas Luxx

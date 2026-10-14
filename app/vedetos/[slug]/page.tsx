@@ -852,7 +852,7 @@ export default function VedetoProfilePage({ params }: PageProps) {
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
-                  animation: prefersReducedMotion ? 'none' : 'vip-shine 5s linear infinite, gold-text-glow 3s ease-in-out infinite',
+                  animationPlayState: prefersReducedMotion ? 'paused' : 'running',
                 }}
               >
                 Otros Artistas

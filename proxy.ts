@@ -25,7 +25,9 @@ export function proxy(request: NextRequest) {
     "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    // El checkout envía token_ws por POST al formulario de pago de Webpay
+    // (producción e integración); cualquier otro destino queda bloqueado.
+    "form-action 'self' https://webpay3g.transbank.cl https://webpay3gint.transbank.cl",
     "frame-ancestors 'none'",
   ].join('; ')
 

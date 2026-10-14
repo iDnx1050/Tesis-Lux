@@ -1,8 +1,9 @@
-import Image from 'next/image'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { LimusinasSelector } from '@/components/limusinas-selector'
+import { DecoracionSelector } from '@/components/decoracion-selector'
+import { CocteleriaSelector } from '@/components/cocteleria-selector'
 
 export const metadata = {
   title: 'Extras — Luxx Producciones',
@@ -16,10 +17,6 @@ const EXTRAS = [
     title: 'Limusina',
     description:
       'Llega en grande. Servicio de limusina para que tú y tus amigas vivan la experiencia VIP desde el primer momento, antes de que empiece el show. El lujo empieza en el camino.',
-    image: null,
-    alt: 'Servicio de limusina VIP Luxx',
-    wa: 'Hola, me interesa cotizar el servicio de limusina para mi evento 🚗 ¿Podrían orientarme?',
-    imageHeight: 800,
   },
   {
     id: 'decoracion',
@@ -27,10 +24,6 @@ const EXTRAS = [
     title: 'Decoración de Eventos',
     description:
       'Transformamos tu espacio en algo inolvidable. Desde arcos de globos hasta paneles shimmer, cada detalle está pensado para elevar el ambiente de tu celebración. Disponible para despedidas de soltera, cumpleaños y eventos corporativos.',
-    image: '/Deco Lux.jpeg',
-    alt: 'Opciones de decoración de eventos Luxx',
-    wa: 'Hola, me interesa cotizar el servicio de decoración para mi evento 🎉 ¿Podrían orientarme?',
-    imageHeight: 1500,
   },
   {
     id: 'cocteleria',
@@ -38,10 +31,6 @@ const EXTRAS = [
     title: 'Coctelería',
     description:
       'Completa tu show con una experiencia gastronómica de calidad. Tablas de charcutería, brochetas, mini cupcakes y limonadas artesanales — presentados con elegancia para que tú y tus amigas disfruten sin preocuparse de nada.',
-    image: '/Cocteleria lux.jpeg',
-    alt: 'Menús de coctelería para eventos Luxx',
-    wa: 'Hola, me interesa cotizar el servicio de coctelería para mi evento 🥂 ¿Podrían orientarme?',
-    imageHeight: 800,
   },
 ]
 
@@ -89,7 +78,7 @@ export default function ExtrasPage() {
 
       {/* Cards */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 pb-24 space-y-20">
-        {EXTRAS.map((item, i) => (
+        {EXTRAS.map((item) => (
           <div key={item.id} className="group">
 
             {/* Label + title */}
@@ -108,47 +97,9 @@ export default function ExtrasPage() {
               </p>
             </div>
 
-            {item.image ? (
-              <>
-                {/* Image card */}
-                <div
-                  className="relative w-full rounded-2xl overflow-hidden border border-[#D4AF37]/20 transition-all duration-500 group-hover:border-[#D4AF37]/45"
-                  style={{
-                    boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.08)',
-                  }}
-                >
-                  <Image
-                    src={item.image}
-                    alt={item.alt}
-                    width={1200}
-                    height={item.imageHeight}
-                    className="w-full h-auto object-contain"
-                    priority={i === 0}
-                  />
-                  {/* Gold shimmer on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#D4AF37]/0 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                </div>
-
-                {/* CTA */}
-                <div className="mt-6 flex justify-center sm:justify-start">
-                  <a
-                    href={`https://wa.me/56945501752?text=${encodeURIComponent(item.wa)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-gold-pulse inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-sans text-sm font-bold tracking-widest uppercase text-[#0e0a18] transition-all duration-300"
-                    style={{
-                      background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 45%, #b8922e 100%)',
-                    }}
-                  >
-                    Cotizar este servicio →
-                  </a>
-                </div>
-              </>
-            ) : (
-              // Limusinas: en vez de una imagen estática con los precios
-              // quemados, la flota se elige y se cotiza en el propio sitio.
-              <LimusinasSelector />
-            )}
+            {item.id === 'limusina' && <LimusinasSelector />}
+            {item.id === 'decoracion' && <DecoracionSelector />}
+            {item.id === 'cocteleria' && <CocteleriaSelector />}
           </div>
         ))}
       </section>

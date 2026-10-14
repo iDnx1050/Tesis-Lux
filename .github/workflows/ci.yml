@@ -5,18 +5,47 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Corrida semanal (lunes 06:00 UTC): detecta vulnerabilidades publicadas en
+  # dependencias aunque no haya commits nuevos.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# Mínimo privilegio: el workflow solo necesita leer el repositorio.
+permissions:
+  contents: read
 
 jobs:
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      # Las acciones van fijadas por SHA (no por tag) para que no puedan
+      # cambiar sin que lo sepamos; Dependabot las mantiene actualizadas.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      # Falla si hay vulnerabilidades altas o críticas (lee el package-lock.json,
+      # no necesita instalar nada).
+      - name: npm audit
+        run: npm audit --audit-level=high
+
   build:
     name: Type Check & Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: 'npm'

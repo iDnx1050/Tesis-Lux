@@ -1,22 +1,27 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { X, ChevronLeft, ChevronRight, Camera } from 'lucide-react'
 
-const GALLERY_PHOTOS: { src: string; alt: string; span?: 'tall' | 'wide' | 'normal' }[] = [
-  { src: '/Galeria/IMG_9099.PNG',                              alt: 'Evento exclusivo 1', span: 'tall'   },
-  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.jpg', alt: 'Evento exclusivo 2', span: 'normal' },
-  { src: '/Galeria/IMG_9100.PNG',                              alt: 'Evento exclusivo 3', span: 'normal' },
-  { src: '/Galeria/5719389e-b4e4-46f7-9f80-7590617fd216.JPG', alt: 'Evento exclusivo 4', span: 'normal' },
-  { src: '/Galeria/IMG_9102.PNG',                              alt: 'Evento exclusivo 5', span: 'tall'   },
-  { src: '/Galeria/IMG_9103.PNG',                              alt: 'Evento exclusivo 6', span: 'wide'   },
+const GALLERY_PHOTOS: { src: string; alt: string }[] = [
+  { src: '/Galeria/IMG_9099.PNG',                              alt: 'Evento exclusivo 1' },
+  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.jpg', alt: 'Evento exclusivo 2' },
+  { src: '/Galeria/IMG_9100.PNG',                              alt: 'Evento exclusivo 3' },
+  { src: '/Galeria/5719389e-b4e4-46f7-9f80-7590617fd216.JPG', alt: 'Evento exclusivo 4' },
+  { src: '/Galeria/IMG_9102.PNG',                              alt: 'Evento exclusivo 5' },
+  { src: '/Galeria/IMG_9103.PNG',                              alt: 'Evento exclusivo 6' },
 ]
 
 export function EventGallery() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const prefersReducedMotion = useReducedMotion()
+  const pinRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const progressRef = useRef<HTMLDivElement>(null)
 
   const openLightbox = useCallback((i: number) => setLightboxIndex(i), [])
   const closeLightbox = useCallback(() => setLightboxIndex(null), [])
@@ -39,6 +44,59 @@ export function EventGallery() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [lightboxIndex, closeLightbox, goPrev, goNext])
+
+  // Scroll horizontal: en escritorio la sección se fija (pin) y el scroll
+  // vertical desplaza la pista hacia la izquierda; cada foto además se mueve
+  // dentro de su marco (parallax) usando containerAnimation. En móvil o con
+  // "reducir movimiento" queda el carrusel nativo con swipe. El HTML del
+  // servidor ya es ese carrusel visible: si el JS falla, nada queda oculto.
+  useEffect(() => {
+    const pin = pinRef.current
+    const track = trackRef.current
+    if (!pin || !track) return
+    gsap.registerPlugin(ScrollTrigger)
+
+    const mm = gsap.matchMedia()
+    mm.add('(min-width: 768px) and (prefers-reduced-motion: no-preference)', () => {
+      const distance = () => track.scrollWidth - window.innerWidth
+
+      const scrollTween = gsap.to(track, {
+        x: () => -distance(),
+        ease: 'none',
+        scrollTrigger: {
+          trigger: pin,
+          start: 'top top',
+          end: () => `+=${distance()}`,
+          pin: true,
+          scrub: 1,
+          invalidateOnRefresh: true,
+          onUpdate: (self) => {
+            if (progressRef.current) gsap.set(progressRef.current, { scaleX: self.progress })
+          },
+        },
+      })
+
+      track.querySelectorAll<HTMLElement>('[data-parallax]').forEach((img) => {
+        gsap.fromTo(
+          img,
+          { xPercent: -8 },
+          {
+            xPercent: 8,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: img.parentElement,
+              containerAnimation: scrollTween,
+              start: 'left right',
+              end: 'right left',
+              scrub: true,
+            },
+          },
+        )
+      })
+    })
+
+    return () => mm.revert()
+  }, [])
 
   // Lock scroll when lightbox is open
   useEffect(() => {
@@ -74,15 +132,13 @@ export function EventGallery() {
           </div>
 
           <h2
-            className="font-serif text-[clamp(1.8rem,5vw,3rem)] font-bold leading-tight"
+            className="gold-text-glow font-serif text-[clamp(1.8rem,5vw,3rem)] font-bold leading-tight"
             style={{
               background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 30%, #FFD700 55%, #B8962E 75%, #e8c84a 100%)',
               backgroundSize: '200% auto',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              filter: 'drop-shadow(0 0 16px rgba(212,175,55,0.3))',
-              animation: 'vip-shine 5s linear infinite',
             }}
           >
             Noches que no se olvidan
@@ -93,17 +149,29 @@ export function EventGallery() {
           </p>
         </motion.div>
 
-        {/* Masonry grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 auto-rows-[180px] sm:auto-rows-[220px]">
+      </div>
+
+      {/* Galería horizontal. Inspirada en "Horizontal scrolling gallery" de
+          GreenSock (ScrollTrigger + containerAnimation). */}
+      <div ref={pinRef} className="relative z-10 md:h-screen md:flex md:items-center">
+        <div
+          ref={trackRef}
+          className="flex gap-4 sm:gap-6 px-4 sm:px-6 md:px-[8vw] overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none pb-4 md:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {GALLERY_PHOTOS.map((photo, i) => (
-            <GalleryTile
+            <GalleryPanel
               key={photo.src}
               photo={photo}
               index={i}
+              total={GALLERY_PHOTOS.length}
               onOpen={() => openLightbox(i)}
-              prefersReducedMotion={!!prefersReducedMotion}
             />
           ))}
+        </div>
+
+        {/* Barra de progreso (solo escritorio, la mueve GSAP) */}
+        <div className="hidden md:block absolute bottom-10 left-[8vw] right-[8vw] h-px bg-white/10">
+          <div ref={progressRef} className="h-full origin-left scale-x-0 bg-gradient-to-r from-[#D4AF37] to-[#FFD700]" />
         </div>
       </div>
 
@@ -125,62 +193,56 @@ export function EventGallery() {
   )
 }
 
-// ─── Tile ─────────────────────────────────────────────────────────────────────
+// ─── Panel ────────────────────────────────────────────────────────────────────
 
-function GalleryTile({
+function GalleryPanel({
   photo,
   index,
+  total,
   onOpen,
-  prefersReducedMotion,
 }: {
   photo: typeof GALLERY_PHOTOS[0]
   index: number
+  total: number
   onOpen: () => void
-  prefersReducedMotion: boolean
 }) {
-  const spanClass =
-    photo.span === 'tall' ? 'row-span-2' :
-    photo.span === 'wide' ? 'col-span-2' :
-    ''
-
   return (
-    <motion.div
-      className={`group relative overflow-hidden rounded-xl cursor-pointer ${spanClass}`}
-      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: '-40px' }}
-      transition={{ duration: 0.5, delay: index * 0.08 }}
+    <button
+      type="button"
       onClick={onOpen}
+      aria-label={`Ampliar foto ${index + 1} de ${total}`}
+      className="group relative shrink-0 snap-center overflow-hidden rounded-2xl cursor-pointer w-[78vw] sm:w-[52vw] md:w-[34vw] lg:w-[28vw] h-[60vh] md:h-[68vh] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
       style={{
-        boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)',
       }}
     >
-      <Image
-        src={photo.src}
-        alt={photo.alt}
-        fill
-        className="object-contain bg-black/30 transition-transform duration-700 group-hover:scale-105"
-        sizes="(max-width: 768px) 50vw, 33vw"
-      />
-
-      {/* Base gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0e0a18]/70 via-transparent to-transparent" />
-
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-[#D4AF37]/0 group-hover:bg-[#D4AF37]/8 transition-colors duration-500" />
-
-      {/* Gold border on hover */}
-      <div className="absolute inset-0 rounded-xl border border-white/6 group-hover:border-[#D4AF37]/40 transition-colors duration-400" />
-
-      {/* Expand icon */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-[#D4AF37]/40 flex items-center justify-center">
-          <svg className="w-4 h-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-          </svg>
-        </div>
+      {/* La imagen es más ancha que el marco para que el parallax no deje bordes */}
+      <div data-parallax className="absolute inset-y-0 -left-[10%] -right-[10%]">
+        <Image
+          src={photo.src}
+          alt={photo.alt}
+          fill
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
+          sizes="(max-width: 640px) 90vw, (max-width: 1024px) 60vw, 34vw"
+        />
       </div>
-    </motion.div>
+
+      {/* Degradado inferior */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0e0a18]/85 via-transparent to-transparent" />
+
+      {/* Borde dorado en hover */}
+      <div className="absolute inset-0 rounded-2xl border border-white/6 group-hover:border-[#D4AF37]/50 transition-colors duration-500" />
+
+      {/* Numeración */}
+      <div className="absolute bottom-5 left-5 flex items-baseline gap-2 text-left">
+        <span className="font-serif text-4xl font-bold text-[#D4AF37]">
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        <span className="font-sans text-xs tracking-[0.3em] text-white/50">
+          / {String(total).padStart(2, '0')}
+        </span>
+      </div>
+    </button>
   )
 }
 

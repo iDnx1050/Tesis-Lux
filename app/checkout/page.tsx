@@ -18,6 +18,30 @@ import type { AvailabilitySlot } from '@/lib/types'
 const EXTRA_PER_ARTIST = 60000
 const clp = (n: number) => `$${n.toLocaleString('es-CL')}`
 
+// Únicos destinos válidos del formulario de pago (los mismos que permite el
+// CSP en form-action). Si la API devolviera otra URL, no se envía nada.
+const WEBPAY_ORIGINS = ['https://webpay3g.transbank.cl', 'https://webpay3gint.transbank.cl']
+
+/**
+ * Webpay exige llegar a su formulario por POST con el token en `token_ws`.
+ * Se arma un formulario oculto y se envía: la página navega a Transbank.
+ */
+function redirectToWebpay(url: string, token: string) {
+  if (!WEBPAY_ORIGINS.includes(new URL(url).origin)) {
+    throw new Error('URL de pago inesperada')
+  }
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = url
+  const input = document.createElement('input')
+  input.type = 'hidden'
+  input.name = 'token_ws'
+  input.value = token
+  form.appendChild(input)
+  document.body.appendChild(form)
+  form.submit()
+}
+
 /* ────────────────────────────────────────────────────────────── */
 /*  Página (wrapper con Suspense — requerido para useSearchParams)  */
 /* ────────────────────────────────────────────────────────────── */
@@ -50,7 +74,11 @@ function CheckoutContent() {
   const tierId = params.get('tier') ?? ''
   const regionId = params.get('region') ?? 'metropolitana'
   const communeName = params.get('commune') ?? 'Santiago'
-  const extraSlugs = (params.get('extras') ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  // Sin repetidos ni el artista principal: el mismo criterio que aplica el
+  // servidor al calcular el monto (lib/pricing.ts).
+  const extraSlugs = [...new Set(
+    (params.get('extras') ?? '').split(',').map(s => s.trim()).filter(s => s && s !== slug),
+  )]
 
   const vedeto = vedetos.find(v => v.slug === slug)
   const tier = vedeto?.pricing.find(t => t.id === tierId) ?? vedeto?.pricing[0]
@@ -64,7 +92,13 @@ function CheckoutContent() {
   })
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+
+  /* ── Pago ── */
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  // Se incrementa para volver a consultar la agenda (p. ej. si el bloque se
+  // tomó mientras la clienta completaba el formulario).
+  const [availabilityVersion, setAvailabilityVersion] = useState(0)
 
   /* ── Disponibilidad real (Google Calendar) ── */
   // Se arranca con la del perfil para que el calendario no aparezca vacío
@@ -107,7 +141,7 @@ function CheckoutContent() {
     return () => {
       cancelled = true
     }
-  }, [slug])
+  }, [slug, availabilityVersion])
 
   // Si el bloque elegido se ocupó mientras la clienta completaba el formulario,
   // se deselecciona: así no puede enviar una reserva que el servidor rechazará.
@@ -200,6 +234,50 @@ function CheckoutContent() {
   // El descuento proviene del servidor (/api/checkout/quote), no se calcula aquí.
   const discount = appliedCoupon ? serverDiscount : 0
   const grandTotal = subtotal - discount
+
+  /* ── Inicio del pago con Webpay ── */
+  // El servidor recalcula el monto, revalida el horario y crea la transacción;
+  // aquí solo se envía la selección y se redirige al formulario de Transbank.
+  const startPayment = async () => {
+    if (!readyToPay || paying || !vedeto || !tier) return
+    setPaying(true)
+    setPayError(null)
+    try {
+      const res = await fetch('/api/checkout/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: vedeto.slug,
+          tierId: tier.id,
+          regionId,
+          communeName,
+          extras: extraSlugs,
+          coupon: appliedCoupon ?? undefined,
+          date: selectedDate,
+          time: selectedTime,
+          contactName: form.nombre,
+          contactEmail: form.email,
+          contactPhone: form.telefono,
+          address: form.direccion,
+          addressDetail: form.numero,
+          expectedAmount: grandTotal,
+        }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) {
+        setPayError(json?.error?.message ?? 'No pudimos iniciar el pago. Intenta nuevamente.')
+        // El bloque se ocupó: se vuelve a pedir la agenda para mostrarlo en rojo.
+        if (json?.error?.code === 'SLOT_TAKEN') setAvailabilityVersion(v => v + 1)
+        setPaying(false)
+        return
+      }
+      // `paying` sigue en true mientras el navegador navega a Webpay.
+      redirectToWebpay(json.data.url, json.data.token)
+    } catch {
+      setPayError('No pudimos conectar con el servidor. Revisa tu conexión e intenta nuevamente.')
+      setPaying(false)
+    }
+  }
 
   /* ── Sin reserva válida ── */
   if (!vedeto || !tier || !pricing) {
@@ -515,54 +593,43 @@ function CheckoutContent() {
                 </div>
               </div>
 
-              {/* Pago / Transbank (marco) */}
+              {/* Pago con Transbank Webpay Plus */}
               <div className="p-5 pt-0">
-                <AnimatePresence mode="wait">
-                  {submitted ? (
-                    <motion.div
-                      key="ok"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 p-4 text-center"
-                    >
-                      <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366]/20">
-                        <Check className="h-4 w-4 text-[#25D366]" />
-                      </div>
-                      <p className="font-sans text-sm font-semibold text-white">Datos recibidos</p>
-                      <p className="mt-1 font-sans text-[11px] leading-relaxed text-white/55">
-                        Aquí se conectará la pasarela <strong>Transbank Webpay</strong> para procesar
-                        el pago de forma segura.
-                      </p>
-                    </motion.div>
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onClick={startPayment}
+                  disabled={!readyToPay || paying}
+                  aria-busy={paying}
+                  className={`flex w-full items-center justify-center gap-2.5 rounded-xl px-4 py-4 font-sans text-sm font-bold uppercase tracking-widest transition-all duration-300 ${
+                    readyToPay
+                      ? 'btn-gold-pulse text-[#0e0a18] disabled:cursor-wait disabled:opacity-80'
+                      : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30'
+                  }`}
+                  style={
+                    readyToPay
+                      ? {
+                          background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 45%, #b8922e 100%)',
+                          boxShadow: '0 0 18px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.25)',
+                        }
+                      : undefined
+                  }
+                >
+                  {paying ? (
+                    <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-[#0e0a18]/30 border-t-[#0e0a18]" />
                   ) : (
-                    <motion.button
-                      key="pay"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      /* TODO: integrar Transbank Webpay Plus — iniciar transacción aquí */
-                      onClick={() => readyToPay && setSubmitted(true)}
-                      disabled={!readyToPay}
-                      className={`flex w-full items-center justify-center gap-2.5 rounded-xl px-4 py-4 font-sans text-sm font-bold uppercase tracking-widest transition-all duration-300 ${
-                        readyToPay
-                          ? 'btn-gold-pulse text-[#0e0a18]'
-                          : 'cursor-not-allowed border border-white/10 bg-white/5 text-white/30'
-                      }`}
-                      style={
-                        readyToPay
-                          ? {
-                              background: 'linear-gradient(135deg, #ffe599 0%, #D4AF37 45%, #b8922e 100%)',
-                              boxShadow: '0 0 18px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.25)',
-                            }
-                          : undefined
-                      }
-                    >
-                      <CreditCard className="h-4 w-4 flex-shrink-0" />
-                      {readyToPay ? 'Pagar con Transbank' : 'Completa tus datos'}
-                    </motion.button>
+                    <CreditCard className="h-4 w-4 flex-shrink-0" />
                   )}
-                </AnimatePresence>
+                  {paying ? 'Conectando con Webpay…' : readyToPay ? 'Pagar con Transbank' : 'Completa tus datos'}
+                </motion.button>
 
-                {!submitted && !readyToPay && (
+                {payError && (
+                  <p role="alert" className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-center font-sans text-[11px] leading-relaxed text-red-300">
+                    {payError}
+                  </p>
+                )}
+
+                {!readyToPay && (
                   <p className="mt-3 text-center font-sans text-[11px] text-white/35">
                     {!formComplete ? 'Completa tus datos' : 'Elige fecha y hora del evento'}
                   </p>

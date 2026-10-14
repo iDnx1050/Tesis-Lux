@@ -32,14 +32,13 @@ interface Limusina {
   image?: string
 }
 
-// Flota ordenada de mayor a menor capacidad. Hay dos Hummer y dos Chrysler:
-// se distinguen por color, así que el id lo incluye — el modelo solo no basta.
+// Flota ordenada de menor a mayor precio.
 const LIMUSINAS: Limusina[] = [
-  { id: 'hummer-blanca-15', model: 'Hummer blanca', capacity: 15, price: 472_990, image: '/limusinas/hummer-blanca.jpg' },
-  { id: 'party-truck-12', model: 'Party Truck', capacity: 12, price: 472_990, image: '/limusinas/party-truck.jpg' },
-  { id: 'hummer-azul-10', model: 'Hummer azul', capacity: 10, price: 422_990, image: '/limusinas/hummer-azul.jpg' },
-  { id: 'chrysler-blanca-10', model: 'Chrysler blanca', capacity: 10, price: 422_990, image: '/limusinas/chrysler-blanca.jpg' },
-  { id: 'chrysler-dorado-6', model: 'Chrysler blanca con dorado', capacity: 6, price: 372_990, image: '/limusinas/chrysler-dorada.jpg' },
+  { id: 'chrysler-dorado-6',  model: 'Chrysler blanca con dorado', capacity: 6,  price: 372_990, image: '/limusinas/chrysler-dorada.jpg' },
+  { id: 'chrysler-blanca-10', model: 'Chrysler blanca',            capacity: 10, price: 422_990, image: '/limusinas/chrysler-blanca.jpg' },
+  { id: 'hummer-azul-10',     model: 'Hummer azul',                capacity: 10, price: 422_990, image: '/limusinas/hummer-azul.jpg' },
+  { id: 'party-truck-12',     model: 'Party Truck',                capacity: 12, price: 472_990, image: '/limusinas/party-truck.jpg' },
+  { id: 'hummer-blanca-15',   model: 'Hummer blanca',              capacity: 15, price: 472_990, image: '/limusinas/hummer-blanca.jpg' },
 ]
 
 const INCLUDED = [

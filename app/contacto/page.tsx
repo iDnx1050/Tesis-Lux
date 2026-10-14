@@ -17,7 +17,7 @@ export default function ContactoPage() {
         <div className="relative mx-auto max-w-3xl text-center z-10">
           <div className="flex items-center justify-center gap-3">
             <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#D4AF37]/60" />
-            <span className="text-[#D4AF37] font-sans text-sm tracking-[0.34em] uppercase">Contacto</span>
+            <span className="text-white/60 font-sans text-[11px] font-semibold tracking-[0.35em] uppercase">Contacto</span>
             <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
           </div>
           <h1 className="mt-5 font-serif text-5xl font-bold leading-[0.95] text-[#F7E6AE] md:text-7xl">

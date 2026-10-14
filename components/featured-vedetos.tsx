@@ -24,7 +24,10 @@ export function FeaturedVedetos() {
     if (prefersReducedMotion) return
     gsap.registerPlugin(ScrollTrigger)
 
-    if (titleRef.current) {
+    // gsap.context limpia solo las animaciones de este componente; matar todos
+    // los ScrollTrigger rompía los de otras secciones (p. ej. la galería).
+    const ctx = gsap.context(() => {
+      if (!titleRef.current) return
       gsap.fromTo(
         titleRef.current,
         { opacity: 0, y: 40 },
@@ -41,11 +44,9 @@ export function FeaturedVedetos() {
           },
         }
       )
-    }
+    })
 
-    return () => {
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill())
-    }
+    return () => ctx.revert()
   }, [prefersReducedMotion])
 
   return (

@@ -1,13 +1,18 @@
 // Construcción de la disponibilidad que ve la clienta en el checkout,
 // cruzando la grilla de horarios ofrecidos con lo que ya está tomado en
-// Google Calendar.
-import type { AvailabilitySlot } from './types'
+// Google Calendar y en las órdenes de pago de la base de datos.
+import type { AvailabilitySlot, Vedeto } from './types'
 import {
   collidesWith,
   isCalendarConfigured,
+  isSlotFree,
   listBusyIntervals,
   toSantiagoDate,
+  type BusyInterval,
 } from './google-calendar'
+import { isDatabaseConfigured } from './db'
+import { busyIntervalsFromOrders } from './orders'
+import { logWarn } from './logger'
 
 // Horarios en que se ofrece show. Debe coincidir con la grilla que espera el
 // calendario del checkout.
@@ -63,6 +68,25 @@ export async function getAvailability(vedetoSlug: string): Promise<AvailabilityS
   return slots
 }
 
+/** Marca como tomados los horarios de cada día que chocan con `intervals`. */
+function applyBusy(slots: AvailabilitySlot[], intervals: BusyInterval[]): AvailabilitySlot[] {
+  if (intervals.length === 0) return slots
+
+  return slots.map((slot) => {
+    const times = slot.times ?? []
+    const booked = new Set(slot.bookedTimes ?? [])
+    for (const time of times) {
+      if (collidesWith(intervals, slot.date, time)) booked.add(time)
+    }
+    const bookedTimes = times.filter((t) => booked.has(t))
+    return {
+      ...slot,
+      available: slot.available && bookedTimes.length < times.length,
+      bookedTimes,
+    }
+  })
+}
+
 /**
  * Igual que getAvailability, pero nunca lanza: ante un fallo de Google
  * devuelve la disponibilidad de respaldo que trae el perfil.
@@ -71,18 +95,82 @@ export async function getAvailability(vedetoSlug: string): Promise<AvailabilityS
  * mostrar la grilla de respaldo y que la reserva se revalide al confirmar,
  * antes que dejar el checkout inutilizable. La revalidación previa al pago
  * sigue siendo la que garantiza que no haya dos reservas en el mismo bloque.
+ *
+ * Sobre cualquiera de las dos grillas se marcan además los horarios tomados
+ * por órdenes de pago (pagadas o en curso).
  */
 export async function getAvailabilitySafe(
   vedetoSlug: string,
   fallback: AvailabilitySlot[],
 ): Promise<{ slots: AvailabilitySlot[]; source: 'calendar' | 'fallback' }> {
-  if (!isCalendarConfigured()) {
-    return { slots: fallback, source: 'fallback' }
+  let slots = fallback
+  let source: 'calendar' | 'fallback' = 'fallback'
+
+  if (isCalendarConfigured()) {
+    try {
+      slots = await getAvailability(vedetoSlug)
+      source = 'calendar'
+    } catch {
+      // Se sigue con la grilla de respaldo.
+    }
   }
 
-  try {
-    return { slots: await getAvailability(vedetoSlug), source: 'calendar' }
-  } catch {
-    return { slots: fallback, source: 'fallback' }
+  if (isDatabaseConfigured() && slots.length > 0) {
+    try {
+      const intervals = await busyIntervalsFromOrders(
+        vedetoSlug,
+        slots[0].date,
+        slots[slots.length - 1].date,
+      )
+      slots = applyBusy(slots, intervals)
+    } catch (err) {
+      logWarn('No se pudieron leer las órdenes para la disponibilidad', {
+        vedetoSlug,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
+
+  return { slots, source }
+}
+
+/**
+ * ¿Se puede reservar este horario para el artista principal y sus adicionales?
+ * Es la revalidación previa al pago: la grilla que vio la clienta pudo cambiar
+ * mientras completaba el formulario. Lanza si la base de datos o el calendario
+ * no responden (quien llama decide cómo informarlo).
+ */
+export async function isBookable(input: {
+  vedeto: Vedeto
+  extras: Vedeto[]
+  date: string
+  time: string
+}): Promise<boolean> {
+  const { vedeto, extras, date, time } = input
+  const today = toSantiagoDate(Date.now())
+
+  // 1) El horario debe estar en la grilla que se ofrece.
+  if (date < today || date > addDays(today, HORIZON_DAYS - 1)) return false
+
+  if (isCalendarConfigured()) {
+    if (!isOpenDay(date) || !SHOW_TIMES.includes(time)) return false
+  } else {
+    const slot = vedeto.availability.find((a) => a.date === date)
+    if (!slot?.available || !(slot.times ?? []).includes(time)) return false
+  }
+
+  // 2) Ningún artista involucrado puede tener otra orden en ese bloque.
+  for (const artist of [vedeto, ...extras]) {
+    const intervals = await busyIntervalsFromOrders(artist.slug, date, date)
+    if (collidesWith(intervals, date, time)) return false
+  }
+
+  // 3) Ni un evento en Google Calendar (p. ej. un bloqueo cargado a mano).
+  if (isCalendarConfigured()) {
+    for (const artist of [vedeto, ...extras]) {
+      if (!(await isSlotFree(artist.slug, date, time))) return false
+    }
+  }
+
+  return true
 }

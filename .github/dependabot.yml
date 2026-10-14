@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Parches y versiones menores en un solo PR semanal; las versiones
+      # mayores llegan por separado porque pueden romper compatibilidad.
+      menores-y-parches:
+        update-types: [minor, patch]
+    ignore:
+      # Los tipos de Node deben coincidir con el runtime (Node 22 en Netlify y CI).
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # TypeScript 7 solo funciona con next build activando el flag experimental
+      # useTypeScriptCli; se queda en 6.x hasta que Next lo soporte por defecto.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -34,10 +34,14 @@ export default function NosotrosPage() {
 
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="max-w-3xl">
-            <span className="text-white/80 font-sans text-sm tracking-[0.34em] uppercase">
-              Sobre Nosotros
-            </span>
-            <h1 className="mt-5 font-serif text-5xl font-bold leading-[0.95] text-[#F7E6AE] md:text-7xl">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#D4AF37]/60" />
+              <span className="text-white/60 font-sans text-[11px] font-semibold tracking-[0.35em] uppercase">
+                Sobre Nosotros
+              </span>
+              <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
+            </div>
+            <h1 className="mt-4 font-serif text-5xl font-bold leading-[0.95] text-[#F7E6AE] md:text-7xl">
               Donde el estilo se convierte en experiencia.
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-8 text-[#D8D0E7]">

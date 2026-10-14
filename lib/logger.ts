@@ -6,6 +6,8 @@ type SecurityEvent =
   | 'PAYMENT_INITIATED'
   | 'PAYMENT_CONFIRMED'
   | 'PAYMENT_FAILED'
+  // Webpay aprobó un pago cuyo monto, orden o sesión no coinciden con la orden.
+  | 'PAYMENT_ANOMALY'
   | 'BOOKING_CREATED'
   | 'BOOKING_CANCELLED'
   | 'ROLE_CHANGE'

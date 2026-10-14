@@ -181,8 +181,10 @@ export function Footer() {
             <Image
               src="/Webpay.png"
               alt="Medios de pago"
+              // Proporcion real del archivo (949x109): con otra, Tailwind
+              // recalcula el alto (height: auto) y Next.js lo advierte.
               width={520}
-              height={130}
+              height={60}
               className="object-contain"
             />
           </motion.div>

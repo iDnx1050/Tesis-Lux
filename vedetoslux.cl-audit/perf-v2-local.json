@@ -1,0 +1,142 @@
+{
+ "mobile http://localhost:3123/": {
+  "ttfb": 51,
+  "fcp": 960,
+  "lcp": 1612,
+  "lcpEl": "P Este sitio contiene contenido exclusivo para adultos. Al continuar declaras bajo tu respon",
+  "cls": 0,
+  "requests": 37,
+  "kb_total": 4696,
+  "kb_js": 283,
+  "kb_img": 394,
+  "video": [
+   [
+    "http://localhost:3123/magicmike-mobile.mp4",
+    3882338
+   ]
+  ]
+ },
+ "mobile http://localhost:3123/vedetos": {
+  "ttfb": 20,
+  "fcp": 176,
+  "lcp": 944,
+  "lcpEl": "IMG http://localhost:3123/_next/image?url=%2Fvedetos%2FBenjamin%2FBenjamin0.webp&w=1080&q=75",
+  "cls": 0,
+  "requests": 31,
+  "kb_total": 624,
+  "kb_js": 202,
+  "kb_img": 253,
+  "video": []
+ },
+ "mobile http://localhost:3123/vedetos/benjamin": {
+  "ttfb": 20,
+  "fcp": 276,
+  "lcp": 276,
+  "lcpEl": "IMG http://localhost:3123/_next/image?url=%2Fvedetos%2FBenjamin%2FBenjamin0.webp&w=1200&q=75",
+  "cls": 0,
+  "requests": 24,
+  "kb_total": 422,
+  "kb_js": 215,
+  "kb_img": 37,
+  "video": []
+ },
+ "mobile http://localhost:3123/vedetos/paulo-cassanova": {
+  "ttfb": 21,
+  "fcp": 244,
+  "lcp": 544,
+  "lcpEl": "IMG http://localhost:3123/_next/image?url=%2Fvedetos%2FPaulo%2FPaulo%200.webp&w=1200&q=75",
+  "cls": 0,
+  "requests": 24,
+  "kb_total": 453,
+  "kb_js": 215,
+  "kb_img": 67,
+  "video": []
+ },
+ "mobile http://localhost:3123/galeria": {
+  "ttfb": 19,
+  "fcp": 192,
+  "lcp": 224,
+  "lcpEl": "IMG http://localhost:3123/_next/image?url=%2FGaleria%2FIMG_9099.PNG&w=1080&q=75",
+  "cls": 0,
+  "requests": 27,
+  "kb_total": 574,
+  "kb_js": 243,
+  "kb_img": 168,
+  "video": []
+ },
+ "desktop http://localhost:3123/": {
+  "ttfb": 27,
+  "fcp": 280,
+  "lcp": 280,
+  "lcpEl": "SPAN w",
+  "cls": 0,
+  "requests": 48,
+  "kb_total": 6235,
+  "kb_js": 283,
+  "kb_img": 109,
+  "video": [
+   [
+    "http://localhost:3123/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "desktop http://localhost:3123/vedetos": {
+  "ttfb": 19,
+  "fcp": 220,
+  "lcp": 352,
+  "lcpEl": "H1 Artistas Luxx",
+  "cls": 0,
+  "requests": 60,
+  "kb_total": 563,
+  "kb_js": 202,
+  "kb_img": 173,
+  "video": []
+ },
+ "desktop http://localhost:3123/vedetos/benjamin": {
+  "ttfb": 20,
+  "fcp": 212,
+  "lcp": 312,
+  "lcpEl": "VIDEO http://localhost:3123/magicmike-desktop.mp4",
+  "cls": 0,
+  "requests": 44,
+  "kb_total": 6109,
+  "kb_js": 215,
+  "kb_img": 108,
+  "video": [
+   [
+    "http://localhost:3123/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "desktop http://localhost:3123/vedetos/paulo-cassanova": {
+  "ttfb": 20,
+  "fcp": 276,
+  "lcp": 360,
+  "lcpEl": "VIDEO http://localhost:3123/magicmike-desktop.mp4",
+  "cls": 0,
+  "requests": 47,
+  "kb_total": 6156,
+  "kb_js": 215,
+  "kb_img": 155,
+  "video": [
+   [
+    "http://localhost:3123/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "desktop http://localhost:3123/galeria": {
+  "ttfb": 17,
+  "fcp": 256,
+  "lcp": 408,
+  "lcpEl": "IMG http://localhost:3123/_next/image?url=%2FGaleria%2FIMG_9099.PNG&w=640&q=75",
+  "cls": 0.082,
+  "requests": 36,
+  "kb_total": 549,
+  "kb_js": 243,
+  "kb_img": 135,
+  "video": []
+ }
+}

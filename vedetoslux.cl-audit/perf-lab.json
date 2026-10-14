@@ -1,0 +1,118 @@
+{
+ "mobile https://vedetoslux.cl/": {
+  "ttfb": 1775,
+  "fcp": 2560,
+  "lcp": 3196,
+  "lcpEl": "P Este sitio contiene contenido exclusivo para adultos. Al continuar declaras bajo tu respon",
+  "cls": 0,
+  "requests": 49,
+  "kb_total": 7310,
+  "kb_js": 273,
+  "kb_img": 1211,
+  "video": [
+   [
+    "https://vedetoslux.cl/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "mobile https://vedetoslux.cl/vedetos": {
+  "ttfb": 419,
+  "fcp": 748,
+  "lcp": 1568,
+  "lcpEl": "IMG https://vedetoslux.cl/_next/image?url=%2Fvedetos%2FBenjamin%2FBenjamin0.webp&w=1080&q=75",
+  "cls": 0,
+  "requests": 30,
+  "kb_total": 733,
+  "kb_js": 193,
+  "kb_img": 377,
+  "video": []
+ },
+ "mobile https://vedetoslux.cl/vedetos/benjamin": {
+  "ttfb": 536,
+  "fcp": 928,
+  "lcp": 1112,
+  "lcpEl": "IMG https://vedetoslux.cl/_next/image?url=%2Fvedetos%2FBenjamin%2FBenjamin0.webp&w=1200&q=75",
+  "cls": 0,
+  "requests": 24,
+  "kb_total": 6017,
+  "kb_js": 206,
+  "kb_img": 41,
+  "video": [
+   [
+    "https://vedetoslux.cl/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "mobile https://vedetoslux.cl/galeria": {
+  "ttfb": 1473,
+  "fcp": 1796,
+  "lcp": 1844,
+  "lcpEl": "IMG https://vedetoslux.cl/_next/image?url=%2FGaleria%2FIMG_9099.PNG&w=1080&q=75",
+  "cls": 0,
+  "requests": 26,
+  "kb_total": 633,
+  "kb_js": 233,
+  "kb_img": 241,
+  "video": []
+ },
+ "desktop https://vedetoslux.cl/": {
+  "ttfb": 841,
+  "fcp": 1232,
+  "lcp": 1232,
+  "lcpEl": "SPAN w",
+  "cls": 0,
+  "requests": 47,
+  "kb_total": 6244,
+  "kb_js": 273,
+  "kb_img": 137,
+  "video": [
+   [
+    "https://vedetoslux.cl/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "desktop https://vedetoslux.cl/vedetos": {
+  "ttfb": 466,
+  "fcp": 792,
+  "lcp": 992,
+  "lcpEl": "H1 Artistas Luxx",
+  "cls": 0,
+  "requests": 57,
+  "kb_total": 596,
+  "kb_js": 193,
+  "kb_img": 225,
+  "video": []
+ },
+ "desktop https://vedetoslux.cl/vedetos/benjamin": {
+  "ttfb": 899,
+  "fcp": 1376,
+  "lcp": 1460,
+  "lcpEl": "VIDEO https://vedetoslux.cl/magicmike-desktop.mp4",
+  "cls": 0,
+  "requests": 43,
+  "kb_total": 6120,
+  "kb_js": 206,
+  "kb_img": 136,
+  "video": [
+   [
+    "https://vedetoslux.cl/magicmike-desktop.mp4",
+    5741631
+   ]
+  ]
+ },
+ "desktop https://vedetoslux.cl/galeria": {
+  "ttfb": 606,
+  "fcp": 968,
+  "lcp": 1016,
+  "lcpEl": "IMG https://vedetoslux.cl/_next/image?url=%2FGaleria%2FIMG_9099.PNG&w=640&q=75",
+  "cls": 0.082,
+  "requests": 35,
+  "kb_total": 557,
+  "kb_js": 233,
+  "kb_img": 159,
+  "video": []
+ }
+}

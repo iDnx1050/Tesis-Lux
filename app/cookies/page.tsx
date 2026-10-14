@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import Link from 'next/link'
 import { ArrowLeft, Cookie } from 'lucide-react'
 
-export const metadata: Metadata = {
-  title: 'Política de Cookies | Luxx Producciones',
-  description: 'Información sobre el uso de cookies y tecnologías de seguimiento en Luxx Producciones.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Política de Cookies',
+  description:
+    'Información sobre el uso de cookies y tecnologías de seguimiento en el sitio de Luxx Producciones y cómo gestionarlas desde tu navegador.',
+  path: '/cookies',
+})
 
 export default function CookiesPage() {
   return (

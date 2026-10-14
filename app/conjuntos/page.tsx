@@ -5,11 +5,14 @@ import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { GoldParticles } from '@/components/gold-particles'
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
-  title: 'Paquetes Grupales | Luxx Producciones',
-  description: 'Combina más de un artista y arma el show perfecto. Paquetes grupales de Luxx Producciones próximamente disponibles.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Paquetes Grupales',
+  description:
+    'Combina más de un artista y arma el show perfecto para tu despedida de soltera o evento privado. Paquetes grupales de Luxx Producciones próximamente disponibles.',
+  path: '/conjuntos',
+})
 
 export default function ConjuntosPage() {
   return (

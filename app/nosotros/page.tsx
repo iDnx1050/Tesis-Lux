@@ -1,8 +1,17 @@
+import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import Image from 'next/image'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { GoldParticles } from '@/components/gold-particles'
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Nosotros',
+  description:
+    'Conoce Luxx Producciones: elenco seleccionado, coordinación a medida y total discreción para shows privados y despedidas de soltera en Chile.',
+  path: '/nosotros',
+})
 
 const values = [
   {

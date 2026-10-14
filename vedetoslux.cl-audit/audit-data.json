@@ -1,0 +1,262 @@
+{
+  "summary": {
+    "health_score": 47,
+    "business_type": "Servicio local de entretenimiento para eventos privados (área de servicio, Chile)",
+    "top_findings": [
+      "Título y meta description duplicados en 13/21 páginas",
+      "Sin URL canónica en ninguna página",
+      "Open Graph fijo (og:url = home) y sin og:image",
+      "Sin datos estructurados JSON-LD",
+      "Video hero de 5,6 MB servido también en móvil (home 7,3 MB)"
+    ],
+    "quick_wins": [
+      "alternates.canonical por página",
+      "generateMetadata en app/vedetos/[slug]/layout.tsx",
+      "metadata en home, nosotros y contacto",
+      "app/opengraph-image.jpg",
+      "<source media> con magicmike-mobile.mp4 y preload=metadata"
+    ]
+  },
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "score": 60,
+      "what_works": [
+        "HTTPS + HSTS, redirecciones 301 en un salto",
+        "robots.txt y sitemap válidos",
+        "404 reales",
+        "SSR: 867 palabras sin JS",
+        "Cabeceras de seguridad completas"
+      ],
+      "findings": [
+        {
+          "title": "Sin URL canónica",
+          "severity": "High",
+          "description": "Ninguna de las 22 respuestas declara rel=canonical",
+          "recommendation": "alternates.canonical en cada metadata"
+        },
+        {
+          "title": "Render dinámico sin caché",
+          "severity": "Medium",
+          "description": "Cache-Control no-store; TTFB 420-1775 ms por connection() en el layout (CSP con nonce)",
+          "recommendation": "Evaluar CSP con hashes para prerenderizar páginas estáticas"
+        },
+        {
+          "title": "lastmod del sitemap siempre actual",
+          "severity": "Medium",
+          "description": "Todas las URLs con la hora del request",
+          "recommendation": "Fechas reales por ruta"
+        },
+        {
+          "title": "favicon.ico 404",
+          "severity": "Low",
+          "description": "Solo existe /icon.svg",
+          "recommendation": "Añadir app/favicon.ico y apple-icon.png"
+        }
+      ]
+    },
+    {
+      "name": "Content Quality",
+      "score": 50,
+      "what_works": [
+        "Páginas legales completas (Ley 21.719)",
+        "Precios visibles en CLP"
+      ],
+      "findings": [
+        {
+          "title": "Reseñas y cifras sin respaldo",
+          "severity": "High",
+          "description": "'4.9 (143 reseñas)', '500+ eventos' desde lib/mock-data.ts",
+          "recommendation": "Rotular como demo o quitar; no marcar con AggregateRating"
+        },
+        {
+          "title": "Contenido delgado",
+          "severity": "Medium",
+          "description": "/conjuntos 91, /galeria 73, /contacto 69, /nosotros 144 palabras",
+          "recommendation": "noindex en /conjuntos; ampliar nosotros y contacto"
+        },
+        {
+          "title": "Perfiles similares (~73%)",
+          "severity": "Medium",
+          "description": "Plantilla y planes idénticos, 1 párrafo único",
+          "recommendation": "Ampliar contenido único por perfil"
+        },
+        {
+          "title": "Sin FAQ",
+          "severity": "Medium",
+          "description": "No se responden dudas típicas",
+          "recommendation": "Crear /preguntas-frecuentes"
+        }
+      ]
+    },
+    {
+      "name": "On-Page SEO",
+      "score": 38,
+      "what_works": [
+        "Enlazado interno completo, sin huérfanas ni enlaces rotos"
+      ],
+      "findings": [
+        {
+          "title": "Títulos y descripciones duplicados",
+          "severity": "Critical",
+          "description": "13/21 páginas con el título de la home, incluidos los 10 perfiles",
+          "recommendation": "generateMetadata por perfil y metadata en home/nosotros/contacto"
+        },
+        {
+          "title": "Open Graph heredado",
+          "severity": "High",
+          "description": "og:title/og:url de la home en todas las páginas; sin og:image",
+          "recommendation": "openGraph por página + opengraph-image"
+        },
+        {
+          "title": "H1 de la home partido y duplicado",
+          "severity": "High",
+          "description": "Dos <h1> con letras sueltas (hero-section.tsx:128,134)",
+          "recommendation": "Un H1 con sr-only y letras aria-hidden"
+        },
+        {
+          "title": "Sin H1",
+          "severity": "Medium",
+          "description": "/galeria y /cotizador",
+          "recommendation": "Añadir H1 descriptivo"
+        }
+      ]
+    },
+    {
+      "name": "Schema / Structured Data",
+      "score": 5,
+      "what_works": [],
+      "findings": [
+        {
+          "title": "Sin JSON-LD",
+          "severity": "High",
+          "description": "Ningún bloque ld+json en el sitio",
+          "recommendation": "Organization, WebSite, EntertainmentBusiness, Service/Offer, BreadcrumbList"
+        }
+      ]
+    },
+    {
+      "name": "Performance (CWV)",
+      "score": 62,
+      "what_works": [
+        "CLS ~0",
+        "JS 190-275 KB por página"
+      ],
+      "findings": [
+        {
+          "title": "Video de escritorio en móvil",
+          "severity": "High",
+          "description": "magicmike-desktop.mp4 (5,6 MB) en home y perfiles; versión móvil sin usar; preload=auto",
+          "recommendation": "<source media> + preload=metadata + recomprimir"
+        },
+        {
+          "title": "LCP móvil home 3,2 s (lab, sin throttling)",
+          "severity": "Medium",
+          "description": "LCP = texto del age-gate tras hidratar",
+          "recommendation": "Pintar el overlay desde el HTML del servidor"
+        },
+        {
+          "title": "TTFB alto",
+          "severity": "Medium",
+          "description": "Hasta 1,8 s",
+          "recommendation": "Ver render dinámico"
+        }
+      ]
+    },
+    {
+      "name": "AI Search Readiness",
+      "score": 50,
+      "what_works": [
+        "Contenido sin JS",
+        "Bots de IA permitidos"
+      ],
+      "findings": [
+        {
+          "title": "Sin entidad estructurada ni FAQ citable",
+          "severity": "Medium",
+          "description": "Sin schema ni pasajes pregunta-respuesta",
+          "recommendation": "Organization + FAQ"
+        },
+        {
+          "title": "Sin llms.txt",
+          "severity": "Low",
+          "description": "404",
+          "recommendation": "Publicar llms.txt breve"
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "score": 60,
+      "what_works": [
+        "next/image con sizes, srcset y lazy-loading",
+        "Sin imágenes sin alt"
+      ],
+      "findings": [
+        {
+          "title": "Originales pesados",
+          "severity": "Medium",
+          "description": "public/ = 60 MB; PNG de hasta 2,3 MB",
+          "recommendation": "Convertir a WebP < 400 KB"
+        },
+        {
+          "title": "Nombres de archivo no descriptivos",
+          "severity": "Low",
+          "description": "Espacios, IMG_9099.PNG, UUIDs",
+          "recommendation": "Nombres semánticos con guiones"
+        }
+      ]
+    }
+  ],
+  "action_plan": {
+    "phases": [
+      {
+        "name": "Phase 1: Critical Fixes",
+        "timeframe": "Week 1",
+        "items": [
+          "Metadata por página + canónicas",
+          "opengraph-image",
+          "H1 de la home",
+          "Video móvil + preload=metadata"
+        ]
+      },
+      {
+        "name": "Phase 2: High-Impact Improvements",
+        "timeframe": "Weeks 2-3",
+        "items": [
+          "JSON-LD",
+          "Rotular reseñas de demo",
+          "H1 en galería y cotizador",
+          "noindex /conjuntos",
+          "Recomprimir medios",
+          "lastmod real",
+          "meta rating=adult"
+        ]
+      },
+      {
+        "name": "Phase 3: Content & Authority",
+        "timeframe": "Month 2",
+        "items": [
+          "FAQ",
+          "Ampliar nosotros/contacto/perfiles",
+          "Datos de empresa",
+          "Google Business de área de servicio",
+          "favicon.ico, llms.txt"
+        ]
+      },
+      {
+        "name": "Phase 4: Monitoring & Iteration",
+        "timeframe": "Ongoing",
+        "items": [
+          "Search Console",
+          "API key de PageSpeed y re-auditoría",
+          "Baseline de drift por avance"
+        ]
+      }
+    ]
+  },
+  "artifacts": {
+    "findings_dir": "findings/",
+    "screenshots_dir": "screenshots/"
+  }
+}

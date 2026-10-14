@@ -1,7 +1,16 @@
+import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { GoldParticles } from '@/components/gold-particles'
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Contacto',
+  description:
+    'Conversemos tu próximo evento. Escríbenos por WhatsApp o Instagram para coordinar un show privado o una despedida de soltera con Luxx Producciones.',
+  path: '/contacto',
+})
 
 const WHATSAPP_URL = 'https://wa.me/56945501752?text=Hola,%20me%20gustar%C3%ADa%20m%C3%A1s%20informaci%C3%B3n%20sobre%20Luxx%20Producciones.'
 

@@ -4,6 +4,7 @@ import { connection } from 'next/server'
 import { AgeGate } from '@/components/age-gate'
 import { AnnouncementBar } from '@/components/announcement-bar'
 import { SITE_URL } from '@/lib/site'
+import { SITE_NAME } from '@/lib/seo'
 import './globals.css'
 
 /**
@@ -37,16 +38,23 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icon.svg',
   },
-  title: 'Luxx Producciones | Shows Premium en Chile',
+  // Cada pagina define solo su titulo; la plantilla agrega la marca para que
+  // todos los <title> sigan el mismo formato.
+  title: {
+    default: 'Luxx Producciones | Shows Premium en Chile',
+    template: `%s | ${SITE_NAME}`,
+  },
   description: 'Los artistas más solicitados de Chile. Agenda tu show privado con Luxx Producciones — espectáculos de alto impacto para eventos privados, cumpleaños y celebraciones exclusivas.',
-  keywords: ['shows privados', 'luxx producciones', 'artistas premium', 'chile', 'entretenimiento vip', 'shows exclusivos', 'eventos privados'],
+  // Sin canonica ni og:url aqui: se heredarian a paginas que no las definen
+  // (p. ej. /checkout) y todas apuntarian a la home. Cada pagina las declara
+  // con pageMetadata() de lib/seo.ts.
   openGraph: {
-    title: 'Luxx Producciones | Shows Premium en Chile',
-    description: 'Los artistas más solicitados de Chile. Agenda tu show privado con Luxx Producciones.',
-    siteName: 'Luxx Producciones',
+    siteName: SITE_NAME,
     locale: 'es_CL',
     type: 'website',
-    url: SITE_URL,
+  },
+  twitter: {
+    card: 'summary_large_image',
   },
 }
 

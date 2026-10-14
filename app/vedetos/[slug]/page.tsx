@@ -163,7 +163,9 @@ export default function VedetoProfilePage({ params }: PageProps) {
             playsInline
             preload="metadata"
           >
-            <source src="/magicmike-desktop.mp4" type="video/mp4" />
+            {/* Con media, en moviles ningun <source> coincide y el video
+                (oculto por md:block) no se descarga. */}
+            <source media="(min-width: 768px)" src="/magicmike-desktop.mp4" type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-[#0e0a18] via-[#0e0a18]/45 to-black/25" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-transparent to-black/25" />

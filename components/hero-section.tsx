@@ -81,16 +81,19 @@ export function HeroSection() {
           style={{ backgroundImage: "url('/vedetos/todos.webp')" }}
         />
 
-        {/* Video en todos los dispositivos */}
+        {/* Video en todos los dispositivos. El navegador elige el primer
+            <source> cuyo media coincide: en moviles baja la version movil
+            en lugar de los 5,6 MB de la de escritorio. */}
         <video
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           poster="/vedetos/todos.webp"
         >
+          <source media="(max-width: 767px)" src="/magicmike-mobile.mp4" type="video/mp4" />
           <source src="/magicmike-desktop.mp4" type="video/mp4" />
         </video>
 
@@ -125,17 +128,21 @@ export function HeroSection() {
 
         {/* Main Title */}
         <div ref={textRef} className="overflow-hidden mb-2">
-          <h1
-            className="text-[clamp(3rem,12vw,6rem)] font-serif font-bold text-[#F5F5F5] leading-[0.95] tracking-tight"
-            style={{ opacity: prefersReducedMotion ? 1 : undefined }}
-          >
-            {splitTextGold('Shows')}{splitText(' que')}
-          </h1>
-          <h1
-            className="text-[clamp(3rem,12vw,6rem)] font-serif font-bold leading-[0.95] tracking-tight text-white"
-            style={{ opacity: prefersReducedMotion ? 1 : undefined }}
-          >
-            {splitTextGold('Nadie')}{splitText(' Olvida')}
+          {/* Un solo h1 con dos lineas. El espacio entre ambos <span> evita que
+              el texto indexado quede como "Shows queNadie Olvida". */}
+          <h1 className="text-[clamp(3rem,12vw,6rem)] font-serif font-bold leading-[0.95] tracking-tight">
+            <span
+              className="block text-[#F5F5F5]"
+              style={{ opacity: prefersReducedMotion ? 1 : undefined }}
+            >
+              {splitTextGold('Shows')}{splitText(' que')}
+            </span>{' '}
+            <span
+              className="block text-white"
+              style={{ opacity: prefersReducedMotion ? 1 : undefined }}
+            >
+              {splitTextGold('Nadie')}{splitText(' Olvida')}
+            </span>
           </h1>
         </div>
 

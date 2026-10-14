@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import { Navbar } from '@/components/navbar'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
@@ -5,10 +7,12 @@ import { LimusinasSelector } from '@/components/limusinas-selector'
 import { DecoracionSelector } from '@/components/decoracion-selector'
 import { CocteleriaSelector } from '@/components/cocteleria-selector'
 
-export const metadata = {
-  title: 'Extras — Luxx Producciones',
-  description: 'Servicios adicionales para tu evento: decoración y coctelería.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Extras para tu Evento',
+  description:
+    'Complementa tu show privado con limusina, decoración temática y coctelería. Servicios adicionales de Luxx Producciones para eventos en Santiago.',
+  path: '/extras',
+})
 
 const EXTRAS = [
   {

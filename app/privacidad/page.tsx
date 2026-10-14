@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import Link from 'next/link'
 import { ArrowLeft, Shield } from 'lucide-react'
 
-export const metadata: Metadata = {
-  title: 'Política de Privacidad | Luxx Producciones',
-  description: 'Información sobre el tratamiento de datos personales por parte de Luxx Producciones, conforme a la Ley N° 21.719 de Chile.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Política de Privacidad',
+  description:
+    'Información sobre el tratamiento de datos personales por parte de Luxx Producciones, conforme a la Ley N° 21.719 de Chile.',
+  path: '/privacidad',
+})
 
 export default function PoliticaPrivacidadPage() {
   return (

@@ -1,13 +1,17 @@
+import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import Image from 'next/image'
 import { Navbar } from '@/components/navbar'
 import { Cotizador } from '@/components/cotizador'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 
-export const metadata = {
-  title: 'Cotizador — Luxx Producciones',
-  description: 'Calcula el precio de tu despedida de soltera al instante.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Cotizador de Despedidas de Soltera',
+  description:
+    'Calcula al instante el precio de tu despedida de soltera: elige artistas, extras y cantidad de invitadas, y descubre cuánto pone cada una.',
+  path: '/cotizador',
+})
 
 export default function CotizadorPage() {
   return (

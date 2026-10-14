@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo'
 import Link from 'next/link'
 import { ArrowLeft, CalendarCheck } from 'lucide-react'
 
-export const metadata: Metadata = {
-  title: 'Política de Eventos | Luxx Producciones',
-  description: 'Reglas, condiciones y lineamientos para la realización de eventos con Luxx Producciones.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Política de Eventos',
+  description:
+    'Reglas, condiciones y lineamientos para la realización de eventos con Luxx Producciones: requisitos, conducta, logística y penalidades.',
+  path: '/politica-eventos',
+})
 
 export default function PoliticaEventosPage() {
   return (

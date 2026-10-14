@@ -52,7 +52,7 @@ export default function CotizadorPage() {
           style={{ boxShadow: '0 12px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.08)' }}
         >
           <Image
-            src="/Galeria/Llevate.jpg"
+            src="/Galeria/Llevate.webp"
             alt="Llévate más de un artista Luxx"
             width={1200}
             height={800}

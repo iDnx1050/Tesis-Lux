@@ -916,12 +916,12 @@ export function Cotizador() {
             </span>
             <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#D4AF37]/60" />
           </div>
-          <h2
+          <h1
             className="gold-text-glow font-serif text-[clamp(2rem,5vw,3rem)] font-bold leading-tight"
             style={GOLD_TEXT}
           >
             ¿Cuánto pone cada una?
-          </h2>
+          </h1>
           <p className="text-white/40 font-sans text-sm sm:text-base mt-3 max-w-md mx-auto leading-relaxed">
             Ingresa los datos de tu despedida y calcula el precio por persona al instante.
           </p>

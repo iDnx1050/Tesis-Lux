@@ -68,7 +68,7 @@ export default function NosotrosPage() {
             <div className="absolute -right-6 top-6 h-[90%] w-[88%] rounded-[2.2rem] border border-[#D4AF37]/35" />
             <div className="relative overflow-hidden rounded-[2rem]" style={{ boxShadow: '0 0 0 2px rgba(212,175,55,0.55), 0 8px 32px rgba(212,175,55,0.12)' }}>
               <Image
-                src="/Galeria/Nosotros.jpg"
+                src="/Galeria/Nosotros.webp"
                 alt="Nosotros Luxx Producciones"
                 width={900}
                 height={600}

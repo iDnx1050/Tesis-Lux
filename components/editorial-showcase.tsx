@@ -30,7 +30,7 @@ const OCCASIONS = [
     features: ['Sorpresa a domicilio', 'Show a medida', 'Experiencia única'],
     href: '/cotizador',
     cta: 'COTIZAR',
-    photo: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.jpg',
+    photo: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.webp',
   },
   {
     icon: Building2,
@@ -40,7 +40,7 @@ const OCCASIONS = [
     features: ['Producción discreta', 'Artistas de élite', 'Coordinación completa'],
     href: '/vedetos',
     cta: 'RESERVAR',
-    photo: '/Galeria/IMG_9103.PNG',
+    photo: '/Galeria/IMG_9103.webp',
   },
   {
     icon: Car,

@@ -7,12 +7,18 @@ import { GoldParticles } from '@/components/gold-particles'
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Paquetes Grupales',
-  description:
-    'Combina más de un artista y arma el show perfecto para tu despedida de soltera o evento privado. Paquetes grupales de Luxx Producciones próximamente disponibles.',
-  path: '/conjuntos',
-})
+// Sin indexar mientras la pagina solo anuncia "proximamente": un contenido tan
+// breve resta calidad al sitio. Al lanzar los paquetes, quitar `robots` y
+// volver a agregar la ruta en app/sitemap.ts.
+export const metadata: Metadata = {
+  ...pageMetadata({
+    title: 'Paquetes Grupales',
+    description:
+      'Combina más de un artista y arma el show perfecto para tu despedida de soltera o evento privado. Paquetes grupales de Luxx Producciones próximamente disponibles.',
+    path: '/conjuntos',
+  }),
+  robots: { index: false, follow: true },
+}
 
 export default function ConjuntosPage() {
   return (

@@ -10,13 +10,13 @@ import 'swiper/css'
 
 const ROW_1 = [
   { src: '/Galeria/IMG_9099.PNG',                              alt: 'Experiencia 1' },
-  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.jpg', alt: 'Experiencia 2' },
+  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.webp', alt: 'Experiencia 2' },
   { src: '/Galeria/IMG_9100.PNG',                              alt: 'Experiencia 3' },
   { src: '/Galeria/5719389e-b4e4-46f7-9f80-7590617fd216.JPG', alt: 'Experiencia 4' },
   { src: '/Galeria/IMG_9102.PNG',                              alt: 'Experiencia 5' },
-  { src: '/Galeria/IMG_9103.PNG',                              alt: 'Experiencia 6' },
+  { src: '/Galeria/IMG_9103.webp',                              alt: 'Experiencia 6' },
   { src: '/Galeria/IMG_9099.PNG',                              alt: 'Experiencia 1b' },
-  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.jpg', alt: 'Experiencia 2b' },
+  { src: '/Galeria/0b6b176f-3659-4521-8127-4a0260d8a4e6.webp', alt: 'Experiencia 2b' },
 ]
 
 

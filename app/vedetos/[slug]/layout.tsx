@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { vedetos } from '@/lib/mock-data'
 import { pageMetadata } from '@/lib/seo'
+import { vedetoJsonLd } from '@/lib/structured-data'
+import { JsonLd } from '@/components/json-ld'
 
 const clp = (n: number) => `$${n.toLocaleString('es-CL')}`
 
@@ -29,6 +31,19 @@ export async function generateMetadata({
   })
 }
 
-export default function VedetoLayout({ children }: { children: React.ReactNode }) {
-  return children
+export default async function VedetoLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  const vedeto = vedetos.find((v) => v.slug === slug)
+  return (
+    <>
+      {vedeto && <JsonLd data={vedetoJsonLd(vedeto)} />}
+      {children}
+    </>
+  )
 }

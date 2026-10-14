@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/seo'
+import { businessJsonLd } from '@/lib/structured-data'
+import { JsonLd } from '@/components/json-ld'
 import { Navbar } from '@/components/navbar'
 import { HeroSection } from '@/components/hero-section'
 import { PromoTicker } from '@/components/promo-ticker'
@@ -29,6 +31,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-transparent">
+      <JsonLd data={businessJsonLd()} />
       <Navbar />
       <HeroSection />
       <PromoTicker />

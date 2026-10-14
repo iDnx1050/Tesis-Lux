@@ -5,6 +5,8 @@ import { AgeGate } from '@/components/age-gate'
 import { AnnouncementBar } from '@/components/announcement-bar'
 import { SITE_URL } from '@/lib/site'
 import { SITE_NAME } from '@/lib/seo'
+import { siteJsonLd } from '@/lib/structured-data'
+import { JsonLd } from '@/components/json-ld'
 import './globals.css'
 
 /**
@@ -35,9 +37,8 @@ export const metadata: Metadata = {
   // y de las canonicas. Debe coincidir con el dominio del sitemap y del
   // robots.txt; si no, Google descarta las URLs por pertenecer a otro host.
   metadataBase: new URL(SITE_URL),
-  icons: {
-    icon: '/icon.svg',
-  },
+  // Iconos por convencion de archivos: app/icon.svg, app/favicon.ico y
+  // app/apple-icon.png. Declarar `icons` aqui dejaria fuera el apple-touch-icon.
   // Cada pagina define solo su titulo; la plantilla agrega la marca para que
   // todos los <title> sigan el mismo formato.
   title: {
@@ -55,6 +56,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+  },
+  // Google pide etiquetar los sitios +18 para que SafeSearch los clasifique
+  // por pagina y no tome acciones sobre todo el dominio.
+  other: {
+    rating: 'adult',
   },
 }
 
@@ -87,6 +93,7 @@ export default async function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`${playfair.variable} ${inter.variable} ${nunitoSans.variable} font-sans antialiased text-[#F5F5F5]`}>
+        <JsonLd data={siteJsonLd()} />
         <AnnouncementBar />
         {children}
         <AgeGate />

@@ -76,6 +76,8 @@ Crear `app/opengraph-image.jpg` (1200×630) con logo y foto grupal (`public/vede
 
 ## Fase 2 — Alto impacto (semanas 2-3)
 
+> **Estado (2026-10-14):** aplicados 5 (JSON-LD sin reseñas), 7 (H1 en galería y cotizador; las descripciones ya se ampliaron en Fase 1), 8, 10, el `rating=adult`, y del 9 la conversión de 26 imágenes pesadas a WebP (7,6 MB → 313 KB). Pendientes: 6 (decisión sobre reseñas de demo) y la recompresión de videos (requiere ffmpeg). De la Fase 3 ya están `favicon.ico`, `apple-icon.png` y `llms.txt`. El age-gate se dejó como overlay de cliente: renderizarlo en el servidor obligaría a mostrarlo a quien ya lo aceptó o a un script inline con nonce, y no compensa el riesgo.
+
 5. **JSON-LD** (§5): componente `<JsonLd>` server-side con `Organization` + `WebSite` en el layout, `EntertainmentBusiness` (`areaServed`, `telephone`, `priceRange`, `sameAs`) en home, `Service`/`Offer` + `BreadcrumbList` en perfiles. Pasar el `nonce` del CSP al `<script type="application/ld+json">` no es necesario (no es ejecutable), pero validar con Rich Results Test.
 6. **Reseñas/cifras de demo** (C1): rotular o quitar "4.9 (143 reseñas)", "500+ eventos", "Perfil verificado" si no son reales.
 7. **H1 en `/galeria` y `/cotizador`** (O4) y descripciones de 120–155 caracteres (O6).
